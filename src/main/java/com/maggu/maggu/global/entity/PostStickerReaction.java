@@ -14,8 +14,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 스티커 변경(UPDATE) 시나리오가 있어 BaseEntity(createdAt+updatedAt) 상속.
-// DDL 원문에는 타임스탬프가 없었으나, 실제로 수정되는 테이블이라 팀 논의 후 추가.
 @Entity
 @Table(
         name = "post_sticker_reaction",
