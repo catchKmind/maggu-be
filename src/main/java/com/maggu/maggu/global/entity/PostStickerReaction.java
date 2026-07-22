@@ -1,5 +1,6 @@
 package com.maggu.maggu.global.entity;
 
+import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -35,7 +36,7 @@ public class PostStickerReaction extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
-    // 반응이 달린 스티커는 마스터에서 삭제 불가(RESTRICT).
+    // 반응이 달린 스티커는 마스터에서 삭제 불가(RESTRICT)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sticker_id", nullable = false)
     private Sticker sticker;
@@ -47,7 +48,7 @@ public class PostStickerReaction extends BaseEntity {
         this.sticker = sticker;
     }
 
-    // 유저당 게시물당 스티커 1개 — 변경은 DELETE+INSERT가 아니라 이 필드 UPDATE로 처리.
+    // 유저당 게시물당 스티커 1개 — 변경은 DELETE+INSERT가 아니라 이 필드 UPDATE로 처리
     public void changeSticker(Sticker sticker) {
         this.sticker = sticker;
     }
