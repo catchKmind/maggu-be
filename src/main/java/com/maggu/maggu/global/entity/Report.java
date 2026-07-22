@@ -1,6 +1,7 @@
 package com.maggu.maggu.global.entity;
 
 import com.maggu.maggu.global.entity.enums.ReportReason;
+import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -19,7 +20,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Check;
 
 // post_id/comment_id 중 정확히 하나만 채워짐 (XOR)
-// uq_report_post/uq_report_comment(부분 유니크 인덱스, 중복 신고 차단)는 ddl-auto로 자동 생성되지 않아 수동 반영 필요.
+// uq_report_post/uq_report_comment(부분 유니크 인덱스, 중복 신고 차단)는 ddl-auto로 자동 생성되지 않아 수동 반영 필요
 @Entity
 @Table(name = "report")
 @Check(constraints = "(post_id IS NOT NULL AND comment_id IS NULL) OR (post_id IS NULL AND comment_id IS NOT NULL)")

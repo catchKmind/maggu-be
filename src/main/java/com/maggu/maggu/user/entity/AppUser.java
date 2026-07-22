@@ -1,5 +1,6 @@
-package com.maggu.maggu.global.entity;
+package com.maggu.maggu.user.entity;
 
+import com.maggu.maggu.global.entity.BaseEntity;
 import com.maggu.maggu.global.entity.enums.Provider;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,7 +19,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "app_user",
-        uniqueConstraints = @UniqueConstraint(name = "uq_user_provider", columnNames = {"provider", "provider_user_id"})
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_user_provider", columnNames = {"provider", "provider_user_id"}),
+                @UniqueConstraint(name = "uq_user_nickname", columnNames = "nickname")
+        }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,7 +42,7 @@ public class AppUser extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String email;
 
-    @Column(nullable = false, length = 30, unique = true)
+    @Column(nullable = false, length = 30)
     private String nickname;
 
     @Builder
@@ -46,6 +50,10 @@ public class AppUser extends BaseEntity {
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.email = email;
+        this.nickname = nickname;
+    }
+
+    public void changeNickname(String nickname) {
         this.nickname = nickname;
     }
 }

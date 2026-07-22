@@ -1,5 +1,6 @@
 package com.maggu.maggu.global.entity;
 
+import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -31,8 +32,8 @@ public class Folder extends BaseEntity {
     @Column(nullable = false, length = 50)
     private String name;
 
-    // 유저당 기본 폴더는 1개(부분 유니크 인덱스 uq_folder_one_default, ddl-auto로 자동 생성 안 됨 — 수동 반영 필요).
-    // 기본 폴더 삭제 방지는 DB 트리거가 아닌 서비스 계층 책임.
+    // 유저당 기본 폴더는 1개(부분 유니크 인덱스 uq_folder_one_default, ddl-auto로 자동 생성 안 됨 — 수동 반영 필요)
+    // 기본 폴더 삭제 방지는 DB 트리거가 아닌 서비스 계층 책임
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
 

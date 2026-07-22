@@ -1,5 +1,6 @@
 package com.maggu.maggu.global.entity;
 
+import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
