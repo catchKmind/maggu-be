@@ -3,6 +3,7 @@ package com.maggu.maggu.user.service;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.mypage.dto.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +25,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -161,6 +163,29 @@ class UserServiceTest {
                     .email("test@test.com")
                     .nickname(nickname)
                     .build();
+        }
+    }
+
+    @Nested
+    @DisplayName("getMyAccount")
+    class GetMyAccount {
+
+        @Test
+        @DisplayName("전달받은 유저 엔티티의 필드를 그대로 응답 DTO에 담아 반환하고, DB는 조회하지 않는다")
+        void getMyAccount() {
+            AppUser appUser = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .build();
+
+            MyAccountResponse result = userService.getMyAccount(appUser);
+
+            assertThat(result.getProvider()).isEqualTo(Provider.GOOGLE);
+            assertThat(result.getEmail()).isEqualTo("test@test.com");
+            assertThat(result.getNickname()).isEqualTo("행복한사자123");
+            verifyNoInteractions(userRepository);
         }
     }
 }
