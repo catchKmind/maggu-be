@@ -3,6 +3,7 @@ package com.maggu.maggu.user.service;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.mypage.dto.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,11 @@ public class UserService {
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.NICKNAME_DUPLICATE);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public MyAccountResponse getMyAccount(AppUser user) {
+        return MyAccountResponse.from(user);
     }
 
     private String generateUniqueNickname() {
