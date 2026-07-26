@@ -40,9 +40,6 @@ public class Post extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String slug;
 
-    @Column(nullable = false, length = 100)
-    private String title;
-
     @Column(nullable = false, length = 500)
     private String content;
 
@@ -66,11 +63,10 @@ public class Post extends BaseEntity {
     private int scrapCount;
 
     @Builder
-    public Post(AppUser user, String slug, String title, String content, Point location,
+    public Post(AppUser user, String slug, String content, Point location,
                 String tourismContentId, String placeName, PostCategory category) {
         this.user = user;
         this.slug = slug;
-        this.title = title;
         this.content = content;
         this.location = location;
         this.tourismContentId = tourismContentId;
