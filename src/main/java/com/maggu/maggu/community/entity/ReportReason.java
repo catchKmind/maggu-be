@@ -1,4 +1,4 @@
-package com.maggu.maggu.global.entity.enums;
+package com.maggu.maggu.community.entity;
 
 public enum ReportReason {
     HATE,
