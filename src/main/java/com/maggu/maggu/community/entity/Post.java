@@ -29,6 +29,8 @@ import org.locationtech.jts.geom.Point;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post extends BaseEntity {
 
+    private static final int MAX_REPORT_COUNT = 5;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -62,6 +64,14 @@ public class Post extends BaseEntity {
     @Column(name = "scrap_count", nullable = false)
     private int scrapCount;
 
+    // 원자적 UPDATE로만 증감. 5회 이상이면 deleted=true 처리(서비스 계층 책임)
+    @Column(name = "report_count", nullable = false)
+    private int reportCount;
+
+    // 신고 누적 등으로 인한 비공개 처리. 물리 삭제 대신 soft delete로 댓글/스크랩 이력 보존
+    @Column(nullable = false)
+    private boolean deleted;
+
     @Builder
     public Post(AppUser user, String slug, String content, Point location,
                 String tourismContentId, String placeName, PostCategory category) {
@@ -73,5 +83,19 @@ public class Post extends BaseEntity {
         this.placeName = placeName;
         this.category = category;
         this.scrapCount = 0;
+        this.reportCount = 0;
+        this.deleted = false;
+    }
+
+    public boolean isWrittenBy(AppUser candidate) {
+        return this.user != null && this.user.getId().equals(candidate.getId());
+    }
+
+    public boolean shouldAutoHide() {
+        return this.reportCount >= MAX_REPORT_COUNT;
+    }
+
+    public void markDeleted() {
+        this.deleted = true;
     }
 }

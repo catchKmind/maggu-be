@@ -23,8 +23,8 @@ public class PostDetailResponse {
     private PostCategory category;
     private int scrapCount;
     private boolean scrappedByMe;
-    private Map<String, Long> stickerReactionCounts; // 스티커명 -> 개수
-    private String myReactionSticker;                // 내가 누른 스티커명(없으면 null)
+    private Map<String, Long> stickerReactionCounts;
+    private String myReactionSticker;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -84,7 +84,7 @@ public class PostQueryService {
         Post post = getActivePost(postId);
         return PostShareResponse.builder()
                 .postId(post.getId())
-                .url("https://maggu.app/p/" + post.getSlug())
+                .url("https://maggu.app/p/" + post.getSlug()) // TODO: 환경별 도메인 프로퍼티화 필요
                 .build();
     }
 

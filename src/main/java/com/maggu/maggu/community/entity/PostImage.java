@@ -20,6 +20,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PostImage {
 
+    // 게시글당 최대 4장(0~4장) — 서비스 계층에서 검증
+    public static final int MAX_IMAGE_COUNT = 4;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -22,6 +22,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Comment extends BaseEntity {
 
+    private static final int MAX_REPORT_COUNT = 5;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -47,6 +49,12 @@ public class Comment extends BaseEntity {
     @Column(name = "like_count", nullable = false)
     private int likeCount;
 
+    @Column(name = "report_count", nullable = false)
+    private int reportCount;
+
+    @Column(nullable = false)
+    private boolean deleted;
+
     @Builder
     public Comment(Post post, AppUser user, Comment parentComment, String content) {
         this.post = post;
@@ -54,5 +62,19 @@ public class Comment extends BaseEntity {
         this.parentComment = parentComment;
         this.content = content;
         this.likeCount = 0;
+        this.reportCount = 0;
+        this.deleted = false;
+    }
+
+    public boolean isReply() {
+        return this.parentComment != null;
+    }
+
+    public boolean shouldAutoHide() {
+        return this.reportCount >= MAX_REPORT_COUNT;
+    }
+
+    public void markDeleted() {
+        this.deleted = true;
     }
 }

@@ -44,4 +44,8 @@ public class Folder extends BaseEntity {
         this.name = name;
         this.isDefault = isDefault;
     }
+
+    public boolean isOwnedBy(AppUser candidate) {
+        return this.user.getId().equals(candidate.getId());
+    }
 }
