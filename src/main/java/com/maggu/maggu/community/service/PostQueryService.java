@@ -1,5 +1,6 @@
 package com.maggu.maggu.community.service;
 
+import com.maggu.maggu.community.dto.response.PageResponse;
 import com.maggu.maggu.community.dto.response.PostDetailResponse;
 import com.maggu.maggu.community.dto.response.PostShareResponse;
 import com.maggu.maggu.community.dto.response.PostSummaryResponse;
@@ -17,7 +18,9 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.user.entity.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,8 +44,9 @@ public class PostQueryService {
     private final ScrapRepository scrapRepository;
     private final PostStickerReactionRepository reactionRepository;
 
-    public Page<PostSummaryResponse> getFeed(PostCategory category, String sort, AppUser viewer, Pageable pageable) {
+    public PageResponse<PostSummaryResponse> getFeed(PostCategory category, String sort, AppUser viewer, int page, int size) {
         boolean popular = SORT_POPULAR.equalsIgnoreCase(sort);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Post> posts = category == null
                 ? (popular
@@ -52,12 +56,13 @@ public class PostQueryService {
                 ? postRepository.findByCategoryAndDeletedFalseOrderByScrapCountDescCreatedAtDesc(category, pageable)
                 : postRepository.findByCategoryAndDeletedFalseOrderByCreatedAtDesc(category, pageable));
 
-        return toSummaryPage(posts, viewer);
+        return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
-    public Page<PostSummaryResponse> search(String keyword, AppUser viewer, Pageable pageable) {
+    public PageResponse<PostSummaryResponse> search(String keyword, AppUser viewer, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         Page<Post> posts = postRepository.searchByKeyword(keyword, pageable);
-        return toSummaryPage(posts, viewer);
+        return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
     public PostDetailResponse getDetail(Long postId, AppUser viewer) {

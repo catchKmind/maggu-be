@@ -4,6 +4,7 @@ import com.maggu.maggu.community.dto.request.FolderCreateRequest;
 import com.maggu.maggu.community.dto.request.ScrapCreateRequest;
 import com.maggu.maggu.community.dto.response.FolderCreateResponse;
 import com.maggu.maggu.community.dto.response.FolderResponse;
+import com.maggu.maggu.community.dto.response.PageResponse;
 import com.maggu.maggu.community.dto.response.PostSummaryResponse;
 import com.maggu.maggu.community.dto.response.ScrapResponse;
 import com.maggu.maggu.community.entity.Folder;
@@ -17,6 +18,7 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.user.entity.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -122,13 +124,14 @@ public class ScrapService {
                 .build();
     }
 
-    public Page<PostSummaryResponse> getScrapsInFolder(AppUser user, Long folderId, Pageable pageable) {
+    public PageResponse<PostSummaryResponse> getScrapsInFolder(AppUser user, Long folderId, int page, int size) {
         Folder folder = folderRepository.findById(folderId)
                 .filter(f -> f.isOwnedBy(user))
                 .orElseThrow(() -> new BusinessException(ErrorCode.FOLDER_NOT_FOUND));
 
+        Pageable pageable = PageRequest.of(page, size);
         Page<Scrap> scraps = scrapRepository.findByUserAndFolderOrderByCreatedAtDesc(user, folder, pageable);
-        return scraps.map(scrap -> toSummaryResponse(scrap.getPost()));
+        return PageResponse.from(scraps.map(scrap -> toSummaryResponse(scrap.getPost())));
     }
 
     private Folder resolveFolder(AppUser user, Long folderId) {
