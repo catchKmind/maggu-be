@@ -1,5 +1,6 @@
-package com.maggu.maggu.global.entity;
+package com.maggu.maggu.post.entity;
 
+import com.maggu.maggu.global.entity.BaseEntity;
 import com.maggu.maggu.global.entity.enums.PostCategory;
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
@@ -58,7 +59,6 @@ public class Post extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PostCategory category;
 
-    // 원자적 UPDATE로만 증감할 것(예: @Modifying 쿼리). 엔티티 세터로 갱신 금지 — 동시 스크랩 시 값이 유실됨.
     @Column(name = "scrap_count", nullable = false)
     private int scrapCount;
 
@@ -74,4 +74,5 @@ public class Post extends BaseEntity {
         this.category = category;
         this.scrapCount = 0;
     }
+    // 지안아 우리 아지트에서 나가라고 해줘
 }
