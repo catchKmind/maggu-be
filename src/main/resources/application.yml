@@ -16,3 +16,7 @@ spring:
 
 server:
   port: 8080
+
+tourism-api:
+  base-url: http://apis.data.go.kr/B551011/KorService2
+  service-key: ${TOURISM_API_KEY}
