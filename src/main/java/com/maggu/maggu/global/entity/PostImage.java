@@ -1,5 +1,6 @@
 package com.maggu.maggu.global.entity;
 
+import com.maggu.maggu.post.entity.Post;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
