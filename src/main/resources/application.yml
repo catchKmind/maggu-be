@@ -20,3 +20,9 @@ server:
 tourism-api:
   base-url: http://apis.data.go.kr/B551011/KorService2
   service-key: ${TOURISM_API_KEY}
+
+jwt:
+  secret: f988e2a0b7efb7f0a487ff23f729aa60d747cc0a2c89aba3569d6ec58c2f2bc49fdbef3426b0cedbdf9242f4f27728f9b7a45fb993030b512bd88ba8d1d9b34a
+
+  access-token-validity-seconds: 3600
+  refresh-token-validity-seconds: 1209600
