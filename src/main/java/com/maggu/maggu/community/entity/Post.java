@@ -1,6 +1,13 @@
+<<<<<<<< HEAD:src/main/java/com/maggu/maggu/community/entity/Post.java
 package com.maggu.maggu.community.entity;
 
 import com.maggu.maggu.global.entity.BaseEntity;
+========
+package com.maggu.maggu.post.entity;
+
+import com.maggu.maggu.global.entity.BaseEntity;
+import com.maggu.maggu.global.entity.enums.PostCategory;
+>>>>>>>> origin/main:src/main/java/com/maggu/maggu/post/entity/Post.java
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -60,7 +67,6 @@ public class Post extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PostCategory category;
 
-    // 원자적 UPDATE로만 증감할 것(예: @Modifying 쿼리). 엔티티 세터로 갱신 금지 — 동시 스크랩 시 값이 유실됨.
     @Column(name = "scrap_count", nullable = false)
     private int scrapCount;
 
@@ -86,6 +92,7 @@ public class Post extends BaseEntity {
         this.reportCount = 0;
         this.deleted = false;
     }
+<<<<<<<< HEAD:src/main/java/com/maggu/maggu/community/entity/Post.java
 
     public boolean isWrittenBy(AppUser candidate) {
         return this.user != null && this.user.getId().equals(candidate.getId());
@@ -99,3 +106,7 @@ public class Post extends BaseEntity {
         this.deleted = true;
     }
 }
+========
+    // 지안아 우리 아지트에서 나가라고 해줘
+}
+>>>>>>>> origin/main:src/main/java/com/maggu/maggu/post/entity/Post.java
