@@ -1,13 +1,7 @@
-<<<<<<<< HEAD:src/main/java/com/maggu/maggu/community/entity/Post.java
 package com.maggu.maggu.community.entity;
 
+import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.global.entity.BaseEntity;
-========
-package com.maggu.maggu.post.entity;
-
-import com.maggu.maggu.global.entity.BaseEntity;
-import com.maggu.maggu.global.entity.enums.PostCategory;
->>>>>>>> origin/main:src/main/java/com/maggu/maggu/post/entity/Post.java
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,8 +30,6 @@ import org.locationtech.jts.geom.Point;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post extends BaseEntity {
 
-    private static final int MAX_REPORT_COUNT = 5;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -48,6 +40,9 @@ public class Post extends BaseEntity {
 
     @Column(nullable = false, length = 20)
     private String slug;
+
+    @Column(nullable = false, length = 100)
+    private String title;
 
     @Column(nullable = false, length = 500)
     private String content;
@@ -67,46 +62,21 @@ public class Post extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PostCategory category;
 
+    // 원자적 UPDATE로만 증감할 것(예: @Modifying 쿼리). 엔티티 세터로 갱신 금지 — 동시 스크랩 시 값이 유실됨.
     @Column(name = "scrap_count", nullable = false)
     private int scrapCount;
 
-    // 원자적 UPDATE로만 증감. 5회 이상이면 deleted=true 처리(서비스 계층 책임)
-    @Column(name = "report_count", nullable = false)
-    private int reportCount;
-
-    // 신고 누적 등으로 인한 비공개 처리. 물리 삭제 대신 soft delete로 댓글/스크랩 이력 보존
-    @Column(nullable = false)
-    private boolean deleted;
-
     @Builder
-    public Post(AppUser user, String slug, String content, Point location,
+    public Post(AppUser user, String slug, String title, String content, Point location,
                 String tourismContentId, String placeName, PostCategory category) {
         this.user = user;
         this.slug = slug;
+        this.title = title;
         this.content = content;
         this.location = location;
         this.tourismContentId = tourismContentId;
         this.placeName = placeName;
         this.category = category;
         this.scrapCount = 0;
-        this.reportCount = 0;
-        this.deleted = false;
-    }
-<<<<<<<< HEAD:src/main/java/com/maggu/maggu/community/entity/Post.java
-
-    public boolean isWrittenBy(AppUser candidate) {
-        return this.user != null && this.user.getId().equals(candidate.getId());
-    }
-
-    public boolean shouldAutoHide() {
-        return this.reportCount >= MAX_REPORT_COUNT;
-    }
-
-    public void markDeleted() {
-        this.deleted = true;
     }
 }
-========
-    // 지안아 우리 아지트에서 나가라고 해줘
-}
->>>>>>>> origin/main:src/main/java/com/maggu/maggu/post/entity/Post.java
