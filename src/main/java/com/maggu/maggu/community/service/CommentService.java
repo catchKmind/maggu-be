@@ -6,7 +6,7 @@ import com.maggu.maggu.community.dto.response.CommentLikeResponse;
 import com.maggu.maggu.community.dto.response.CommentResponse;
 import com.maggu.maggu.community.entity.Comment;
 import com.maggu.maggu.community.entity.CommentLike;
-import com.maggu.maggu.community.entity.Post;
+import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.repository.CommentLikeRepository;
 import com.maggu.maggu.community.repository.CommentRepository;
 import com.maggu.maggu.global.exception.BusinessException;

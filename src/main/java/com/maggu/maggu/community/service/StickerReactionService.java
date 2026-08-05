@@ -1,7 +1,7 @@
 package com.maggu.maggu.community.service;
 
 import com.maggu.maggu.community.dto.response.StickerReactionResponse;
-import com.maggu.maggu.community.entity.Post;
+import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.entity.PostStickerReaction;
 import com.maggu.maggu.community.entity.Sticker;
 import com.maggu.maggu.community.repository.PostStickerReactionRepository;

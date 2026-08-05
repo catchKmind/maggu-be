@@ -1,6 +1,6 @@
 package com.maggu.maggu.community.repository;
 
-import com.maggu.maggu.community.entity.Post;
+import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.entity.PostImage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
