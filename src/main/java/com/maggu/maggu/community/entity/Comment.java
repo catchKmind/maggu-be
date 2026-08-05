@@ -1,6 +1,7 @@
 package com.maggu.maggu.community.entity;
 
 import com.maggu.maggu.global.entity.BaseEntity;
+import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

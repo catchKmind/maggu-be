@@ -1,7 +1,7 @@
 package com.maggu.maggu.community.repository;
 
 import com.maggu.maggu.community.entity.Comment;
-import com.maggu.maggu.community.entity.Post;
+import com.maggu.maggu.post.entity.Post;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
