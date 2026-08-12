@@ -59,9 +59,14 @@ public class PostQueryService {
         return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
-    public PageResponse<PostSummaryResponse> search(String keyword, AppUser viewer, int page, int size) {
+    public PageResponse<PostSummaryResponse> search(String keyword, String sort, AppUser viewer, int page, int size) {
+        boolean popular = SORT_POPULAR.equalsIgnoreCase(sort);
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postRepository.searchByKeyword(keyword, pageable);
+
+        Page<Post> posts = popular
+                ? postRepository.searchByKeywordOrderByScrapCountDescCreatedAtDesc(keyword, pageable)
+                : postRepository.searchByKeywordOrderByCreatedAtDesc(keyword, pageable);
+
         return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
