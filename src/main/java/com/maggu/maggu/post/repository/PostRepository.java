@@ -39,6 +39,24 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             """)
     Page<Post> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
+    // 키워드 검색: 최신순 (생성일시 내림차순)
+    @Query("""
+            SELECT p FROM Post p
+            WHERE p.deleted = false
+            AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
+            ORDER BY p.createdAt DESC
+            """)
+    Page<Post> searchByKeywordOrderByCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
+
+    // 키워드 검색: 스크랩순 (스크랩수 내림차순 -> 생성일시 내림차순)
+    @Query("""
+            SELECT p FROM Post p
+            WHERE p.deleted = false
+            AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
+            ORDER BY p.scrapCount DESC, p.createdAt DESC
+            """)
+    Page<Post> searchByKeywordOrderByScrapCountDescCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
+
     @Modifying
     @Query("UPDATE Post p SET p.scrapCount = p.scrapCount + 1 WHERE p.id = :postId")
     void incrementScrapCount(@Param("postId") Long postId);
