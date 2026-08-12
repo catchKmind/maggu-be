@@ -55,8 +55,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
             ORDER BY p.scrapCount DESC, p.createdAt DESC
             """)
-    Page<Post> searchByKeywordOrderByScrapCountDescCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
 
+    Page<Post> searchByKeywordOrderByScrapCountDescCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
     @Modifying
     @Query("UPDATE Post p SET p.scrapCount = p.scrapCount + 1 WHERE p.id = :postId")
     void incrementScrapCount(@Param("postId") Long postId);
