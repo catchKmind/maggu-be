@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/community/posts")
@@ -90,5 +92,13 @@ public class PostController {
             @RequestParam String keyword
     ) {
         return queryService.getAutocomplete(keyword);
+    }
+
+    @GetMapping("/curation")
+    @Operation(summary = "큐레이션 탭 조회", description = "주제/키워드별 상위 5개 게시글 좌우 슬라이드 카드 목록 반환")
+    public List<CurationResponse> getCuration(
+            @CurrentUser AppUser user
+    ) {
+        return queryService.getCuration(user);
     }
 }

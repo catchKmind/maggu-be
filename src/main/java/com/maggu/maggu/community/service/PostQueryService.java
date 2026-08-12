@@ -182,4 +182,26 @@ public class PostQueryService {
                 .build();
     }
 
+    // 큐레이션 탭 조회 (주제별 상위 5개 게시글 슬라이드)
+    public List<CurationResponse> getCuration(AppUser viewer) {
+        // 예시 키워드임
+        List<String> curationKeywords = List.of("야장", "단풍 명소", "불꽃축제", "지역축제");
+
+        Pageable limitFive = PageRequest.of(0, 5);
+
+        return curationKeywords.stream()
+                .map(keyword -> {
+                    Page<Post> postPage = postRepository.searchByKeywordOrderByScrapCountDescCreatedAtDesc(keyword, limitFive);
+                    List<PostSummaryResponse> summaryPosts = toSummaryPage(postPage, viewer).getContent();
+
+                    return CurationResponse.builder()
+                            .title(keyword + " 추천")
+                            .keyword(keyword)
+                            .posts(summaryPosts)
+                            .build();
+                })
+                .filter(curation -> !curation.getPosts().isEmpty()) // 게시글이 있는 큐레이션만 노출
+                .toList();
+    }
+
 }
