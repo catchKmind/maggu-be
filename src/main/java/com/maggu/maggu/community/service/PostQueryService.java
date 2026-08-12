@@ -1,9 +1,6 @@
 package com.maggu.maggu.community.service;
 
-import com.maggu.maggu.community.dto.response.PageResponse;
-import com.maggu.maggu.community.dto.response.PostDetailResponse;
-import com.maggu.maggu.community.dto.response.PostShareResponse;
-import com.maggu.maggu.community.dto.response.PostSummaryResponse;
+import com.maggu.maggu.community.dto.response.*;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.entity.PostImage;
@@ -168,4 +165,21 @@ public class PostQueryService {
                 .updatedAt(post.getUpdatedAt())
                 .build();
     }
+
+    public SearchAutocompleteResponse getAutocomplete(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return SearchAutocompleteResponse.builder()
+                    .keywords(List.of())
+                    .build();
+        }
+
+        // 디자인 요구사항: 관련 연관 검색어 최대 6개 노출
+        Pageable limitSix = PageRequest.of(0, 6);
+        List<String> keywords = postRepository.findDistinctPlaceNamesByKeyword(keyword.trim(), limitSix);
+
+        return SearchAutocompleteResponse.builder()
+                .keywords(keywords)
+                .build();
+    }
+
 }
