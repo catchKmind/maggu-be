@@ -1,9 +1,6 @@
 package com.maggu.maggu.community.service;
 
-import com.maggu.maggu.community.dto.response.PageResponse;
-import com.maggu.maggu.community.dto.response.PostDetailResponse;
-import com.maggu.maggu.community.dto.response.PostShareResponse;
-import com.maggu.maggu.community.dto.response.PostSummaryResponse;
+import com.maggu.maggu.community.dto.response.*;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.entity.PostImage;
@@ -59,9 +56,14 @@ public class PostQueryService {
         return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
-    public PageResponse<PostSummaryResponse> search(String keyword, AppUser viewer, int page, int size) {
+    public PageResponse<PostSummaryResponse> search(String keyword, String sort, AppUser viewer, int page, int size) {
+        boolean popular = SORT_POPULAR.equalsIgnoreCase(sort);
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postRepository.searchByKeyword(keyword, pageable);
+
+        Page<Post> posts = popular
+                ? postRepository.searchByKeywordOrderByScrapCountDescCreatedAtDesc(keyword, pageable)
+                : postRepository.searchByKeywordOrderByCreatedAtDesc(keyword, pageable);
+
         return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
@@ -89,7 +91,7 @@ public class PostQueryService {
         Post post = getActivePost(postId);
         return PostShareResponse.builder()
                 .postId(post.getId())
-                .url("https://maggu.app/p/" + post.getSlug()) // TODO: 환경별 도메인 프로퍼티화 필요
+                .url("https://maggu.app/p/" + post.getSlug())
                 .build();
     }
 
@@ -115,15 +117,30 @@ public class PostQueryService {
                 .map(scrap -> scrap.getPost().getId())
                 .collect(Collectors.toSet());
 
+        // 1. 게시글별 스티커 반응 수 Batch Map
+        Map<Long, Long> reactionCountMap = reactionRepository.countByPostInGrouped(content).stream()
+                .collect(Collectors.toMap(
+                        PostStickerReactionRepository.PostReactionCount::getPostId,
+                        PostStickerReactionRepository.PostReactionCount::getCount
+                ));
+
+        // 2. 내가 반응한 게시글 ID Batch Set
+        Set<Long> reactedPostIds = reactionRepository.findByUserAndPostIn(viewer, content).stream()
+                .map(reaction -> reaction.getPost().getId())
+                .collect(Collectors.toSet());
+
         return posts.map(post -> toSummaryResponse(
                 post,
                 imagesByPostId.getOrDefault(post.getId(), List.of()),
                 commentRepository.countByPostAndDeletedFalse(post),
+                reactionCountMap.getOrDefault(post.getId(), 0L),
+                reactedPostIds.contains(post.getId()),
                 scrappedPostIds.contains(post.getId())
         ));
     }
 
-    private PostSummaryResponse toSummaryResponse(Post post, List<String> imageUrls, long commentCount, boolean scrappedByMe) {
+    private PostSummaryResponse toSummaryResponse(Post post, List<String> imageUrls, long commentCount,
+                                                  long reactionCount, boolean reactedByMe, boolean scrappedByMe) {
         return PostSummaryResponse.builder()
                 .postId(post.getId())
                 .slug(post.getSlug())
@@ -132,6 +149,8 @@ public class PostQueryService {
                 .imageUrls(imageUrls)
                 .placeName(post.getPlaceName())
                 .category(post.getCategory())
+                .reactionCount(reactionCount)
+                .reactedByMe(reactedByMe)
                 .scrapCount(post.getScrapCount())
                 .commentCount(commentCount)
                 .scrappedByMe(scrappedByMe)
@@ -163,4 +182,44 @@ public class PostQueryService {
                 .updatedAt(post.getUpdatedAt())
                 .build();
     }
+
+    public SearchAutocompleteResponse getAutocomplete(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return SearchAutocompleteResponse.builder()
+                    .keywords(List.of())
+                    .build();
+        }
+
+        // 디자인 요구사항: 관련 연관 검색어 최대 6개 노출
+        Pageable limitSix = PageRequest.of(0, 6);
+        List<String> keywords = postRepository.findDistinctPlaceNamesByKeyword(keyword.trim(), limitSix);
+
+        return SearchAutocompleteResponse.builder()
+                .keywords(keywords)
+                .build();
+    }
+
+    // 큐레이션 탭 조회 (주제별 상위 5개 게시글 슬라이드)
+    public List<CurationResponse> getCuration(AppUser viewer) {
+        // 예시 키워드임
+        List<String> curationKeywords = List.of("야장", "단풍 명소", "불꽃축제", "지역축제");
+
+        Pageable limitFive = PageRequest.of(0, 5);
+
+        return curationKeywords.stream()
+                .map(keyword -> {
+                    Page<Post> postPage = postRepository.searchByKeywordOrderByScrapCountDescCreatedAtDesc(keyword, limitFive);
+                    List<PostSummaryResponse> summaryPosts = toSummaryPage(postPage, viewer).getContent();
+
+                    return CurationResponse.builder()
+                            .title(keyword + " 추천")
+                            .keyword(keyword)
+                            .posts(summaryPosts)
+                            .build();
+                })
+                .filter(curation -> !curation.getPosts().isEmpty()) // 게시글이 있는 큐레이션만 노출
+                .toList();
+    }
+
+
 }

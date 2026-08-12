@@ -17,6 +17,10 @@ public class PostSummaryResponse {
     private List<String> imageUrls;
     private String placeName;
     private PostCategory category;
+
+    private long reactionCount;
+    private boolean reactedByMe;
+
     private int scrapCount;
     private long commentCount;
     private boolean scrappedByMe;

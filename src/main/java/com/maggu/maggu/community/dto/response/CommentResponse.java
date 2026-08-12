@@ -11,6 +11,7 @@ import java.util.List;
 public class CommentResponse {
     private Long commentId;
     private String writerNickname; // 탈퇴 회원이면 "탈퇴한 회원"
+    private boolean isPostWriter;  // 작성자 본인 댓글 여부
     private String content;
     private int likeCount;
     private boolean likedByMe;
