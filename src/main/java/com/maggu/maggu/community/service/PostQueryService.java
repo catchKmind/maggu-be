@@ -91,7 +91,7 @@ public class PostQueryService {
         Post post = getActivePost(postId);
         return PostShareResponse.builder()
                 .postId(post.getId())
-                .url("https://maggu.app/p/" + post.getSlug()) // TODO: 환경별 도메인 프로퍼티화 필요
+                .url("https://maggu.app/p/" + post.getSlug())
                 .build();
     }
 
@@ -117,15 +117,30 @@ public class PostQueryService {
                 .map(scrap -> scrap.getPost().getId())
                 .collect(Collectors.toSet());
 
+        // 1. 게시글별 스티커 반응 수 Batch Map
+        Map<Long, Long> reactionCountMap = reactionRepository.countByPostInGrouped(content).stream()
+                .collect(Collectors.toMap(
+                        PostStickerReactionRepository.PostReactionCount::getPostId,
+                        PostStickerReactionRepository.PostReactionCount::getCount
+                ));
+
+        // 2. 내가 반응한 게시글 ID Batch Set
+        Set<Long> reactedPostIds = reactionRepository.findByUserAndPostIn(viewer, content).stream()
+                .map(reaction -> reaction.getPost().getId())
+                .collect(Collectors.toSet());
+
         return posts.map(post -> toSummaryResponse(
                 post,
                 imagesByPostId.getOrDefault(post.getId(), List.of()),
                 commentRepository.countByPostAndDeletedFalse(post),
+                reactionCountMap.getOrDefault(post.getId(), 0L),
+                reactedPostIds.contains(post.getId()),
                 scrappedPostIds.contains(post.getId())
         ));
     }
 
-    private PostSummaryResponse toSummaryResponse(Post post, List<String> imageUrls, long commentCount, boolean scrappedByMe) {
+    private PostSummaryResponse toSummaryResponse(Post post, List<String> imageUrls, long commentCount,
+                                                  long reactionCount, boolean reactedByMe, boolean scrappedByMe) {
         return PostSummaryResponse.builder()
                 .postId(post.getId())
                 .slug(post.getSlug())
@@ -134,6 +149,8 @@ public class PostQueryService {
                 .imageUrls(imageUrls)
                 .placeName(post.getPlaceName())
                 .category(post.getCategory())
+                .reactionCount(reactionCount)
+                .reactedByMe(reactedByMe)
                 .scrapCount(post.getScrapCount())
                 .commentCount(commentCount)
                 .scrappedByMe(scrappedByMe)
@@ -203,5 +220,6 @@ public class PostQueryService {
                 .filter(curation -> !curation.getPosts().isEmpty()) // 게시글이 있는 큐레이션만 노출
                 .toList();
     }
+
 
 }
