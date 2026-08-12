@@ -1,12 +1,7 @@
 package com.maggu.maggu.community.controller;
 
 import com.maggu.maggu.community.dto.request.PostCreateRequest;
-import com.maggu.maggu.community.dto.response.PageResponse;
-import com.maggu.maggu.community.dto.response.PostCreateResponse;
-import com.maggu.maggu.community.dto.response.PostDeleteResponse;
-import com.maggu.maggu.community.dto.response.PostDetailResponse;
-import com.maggu.maggu.community.dto.response.PostShareResponse;
-import com.maggu.maggu.community.dto.response.PostSummaryResponse;
+import com.maggu.maggu.community.dto.response.*;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.service.PostCommandService;
 import com.maggu.maggu.community.service.PostQueryService;
@@ -87,5 +82,13 @@ public class PostController {
     @Operation(summary = "게시글 공유 링크 조회")
     public PostShareResponse share(@PathVariable Long postId) {
         return queryService.getShareLink(postId);
+    }
+
+    @GetMapping("/search/autocomplete")
+    @Operation(summary = "연관 검색어 조회 (자동완성)", description = "검색어 입력 시 장소명 기반 연관 검색어 최대 6개 제공")
+    public SearchAutocompleteResponse getAutocomplete(
+            @RequestParam String keyword
+    ) {
+        return queryService.getAutocomplete(keyword);
     }
 }
