@@ -55,8 +55,17 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
             ORDER BY p.scrapCount DESC, p.createdAt DESC
             """)
-
     Page<Post> searchByKeywordOrderByScrapCountDescCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
+
+    // 연관 검색어 자동완성 (장소명 기준 중복 제거 및 상위 N개 추출)
+    @Query("""
+            SELECT DISTINCT p.placeName FROM Post p
+            WHERE p.deleted = false
+            AND p.placeName IS NOT NULL
+            AND p.placeName LIKE CONCAT('%', :keyword, '%')
+            """)
+    List<String> findDistinctPlaceNamesByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
     @Modifying
     @Query("UPDATE Post p SET p.scrapCount = p.scrapCount + 1 WHERE p.id = :postId")
     void incrementScrapCount(@Param("postId") Long postId);
