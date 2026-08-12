@@ -119,9 +119,13 @@ public class CommentService {
 
     private CommentResponse toResponse(Comment comment, boolean likedByMe, List<CommentResponse> replies) {
         String nickname = comment.getUser() != null ? comment.getUser().getNickname() : WITHDRAWN_USER_LABEL;
+
+        boolean isPostWriter = comment.getPost() != null && comment.getPost().isWrittenBy(comment.getUser());
+
         return CommentResponse.builder()
                 .commentId(comment.getId())
                 .writerNickname(nickname)
+                .isPostWriter(isPostWriter)
                 .content(comment.getContent())
                 .likeCount(comment.getLikeCount())
                 .likedByMe(likedByMe)
