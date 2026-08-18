@@ -1,15 +1,87 @@
 package com.maggu.maggu.post.repository;
 
 import com.maggu.maggu.post.entity.Post;
+import com.maggu.maggu.community.entity.PostCategory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    // 지도 bbox 안의 게시글을 대표이미지와 함께 조회
+    Optional<Post> findByIdAndDeletedFalse(Long id);
+
+    Optional<Post> findBySlugAndDeletedFalse(String slug);
+
+    // 전체 피드 - 최신순
+    Page<Post> findByDeletedFalseOrderByCreatedAtDesc(Pageable pageable);
+
+    // 전체 피드 - 스크랩 많은순(인기순)
+    Page<Post> findByDeletedFalseOrderByScrapCountDescCreatedAtDesc(Pageable pageable);
+
+    // 카테고리 탭 - 최신순
+    Page<Post> findByCategoryAndDeletedFalseOrderByCreatedAtDesc(PostCategory category, Pageable pageable);
+
+    // 카테고리 탭 - 인기순
+    Page<Post> findByCategoryAndDeletedFalseOrderByScrapCountDescCreatedAtDesc(PostCategory category, Pageable pageable);
+
+    // 키워드 검색: 본문 또는 장소명에 포함
+    @Query("""
+            SELECT p FROM Post p
+            WHERE p.deleted = false
+            AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
+            ORDER BY p.createdAt DESC
+            """)
+    Page<Post> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    // 키워드 검색: 최신순 (생성일시 내림차순)
+    @Query("""
+            SELECT p FROM Post p
+            WHERE p.deleted = false
+            AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
+            ORDER BY p.createdAt DESC
+            """)
+    Page<Post> searchByKeywordOrderByCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
+
+    // 키워드 검색: 스크랩순 (스크랩수 내림차순 -> 생성일시 내림차순)
+    @Query("""
+            SELECT p FROM Post p
+            WHERE p.deleted = false
+            AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.placeName LIKE CONCAT('%', :keyword, '%'))
+            ORDER BY p.scrapCount DESC, p.createdAt DESC
+            """)
+    Page<Post> searchByKeywordOrderByScrapCountDescCreatedAtDesc(@Param("keyword") String keyword, Pageable pageable);
+
+    // 연관 검색어 자동완성 (장소명 기준 중복 제거 및 상위 N개 추출)
+    @Query("""
+            SELECT DISTINCT p.placeName FROM Post p
+            WHERE p.deleted = false
+            AND p.placeName IS NOT NULL
+            AND p.placeName LIKE CONCAT('%', :keyword, '%')
+            """)
+    List<String> findDistinctPlaceNamesByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Post p SET p.scrapCount = p.scrapCount + 1 WHERE p.id = :postId")
+    void incrementScrapCount(@Param("postId") Long postId);
+
+    @Modifying
+    @Query("UPDATE Post p SET p.scrapCount = p.scrapCount - 1 WHERE p.id = :postId AND p.scrapCount > 0")
+    void decrementScrapCount(@Param("postId") Long postId);
+
+    @Modifying
+    @Query("UPDATE Post p SET p.reportCount = p.reportCount + 1 WHERE p.id = :postId")
+    void incrementReportCount(@Param("postId") Long postId);
+
+    @Modifying
+    @Query("UPDATE Post p SET p.deleted = true WHERE p.id = :postId")
+    void markDeleted(@Param("postId") Long postId);
+
     @Query(value = """
             SELECT p.id AS postId, p.slug AS slug,
                    ST_X(p.location) AS lng, ST_Y(p.location) AS lat,

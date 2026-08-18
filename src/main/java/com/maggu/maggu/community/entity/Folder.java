@@ -1,5 +1,6 @@
-package com.maggu.maggu.global.entity;
+package com.maggu.maggu.community.entity;
 
+import com.maggu.maggu.global.entity.BaseEntity;
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,5 +43,9 @@ public class Folder extends BaseEntity {
         this.user = user;
         this.name = name;
         this.isDefault = isDefault;
+    }
+
+    public boolean isOwnedBy(AppUser candidate) {
+        return this.user.getId().equals(candidate.getId());
     }
 }

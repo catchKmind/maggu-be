@@ -1,6 +1,6 @@
-package com.maggu.maggu.global.entity;
+package com.maggu.maggu.community.entity;
 
-import com.maggu.maggu.global.entity.enums.ReportReason;
+import com.maggu.maggu.global.entity.BaseCreatedAtEntity;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;

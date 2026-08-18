@@ -1,7 +1,7 @@
 package com.maggu.maggu.post.entity;
 
+import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.global.entity.BaseEntity;
-import com.maggu.maggu.global.entity.enums.PostCategory;
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,6 +41,9 @@ public class Post extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String slug;
 
+    @Column(nullable = false, length = 100)
+    private String title;
+
     @Column(nullable = false, length = 500)
     private String content;
 
@@ -59,14 +62,22 @@ public class Post extends BaseEntity {
     @Column(nullable = false, length = 20)
     private PostCategory category;
 
+    // 원자적 UPDATE로만 증감할 것(예: @Modifying 쿼리). 엔티티 세터로 갱신 금지 — 동시 스크랩 시 값이 유실됨.
     @Column(name = "scrap_count", nullable = false)
     private int scrapCount;
 
+    @Column(nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "report_count", nullable = false)
+    private int reportCount = 0;
+
     @Builder
-    public Post(AppUser user, String slug, String content, Point location,
+    public Post(AppUser user, String slug, String title, String content, Point location,
                 String tourismContentId, String placeName, PostCategory category) {
         this.user = user;
         this.slug = slug;
+        this.title = title;
         this.content = content;
         this.location = location;
         this.tourismContentId = tourismContentId;
@@ -74,5 +85,14 @@ public class Post extends BaseEntity {
         this.category = category;
         this.scrapCount = 0;
     }
-    // 지안아 우리 아지트에서 나가라고 해줘
+
+    public boolean isWrittenBy(AppUser requester) {
+        if (requester == null || this.user == null) {
+            return false;
+        }
+        return this.user.getId().equals(requester.getId());
+    }
+    public void markDeleted() {
+        this.deleted = true;
+    }
 }
