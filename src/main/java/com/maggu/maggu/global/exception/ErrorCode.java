@@ -24,7 +24,7 @@ public enum ErrorCode {
     AUTH_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH-004", "접근 권한이 없습니다."),
 
     // Map
-    EXTERNAL_TOURISM_API_ERROR(HttpStatus.BAD_GATEWAY, "MAP-001", "관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    EXTERNAL_TOURISM_API_ERROR(HttpStatus.BAD_GATEWAY, "MAP-001", "관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST-001", "게시글을 찾을 수 없습니다."),
