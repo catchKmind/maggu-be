@@ -23,7 +23,7 @@ record TourApiRawResponse(Response response) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Body(
             @JsonDeserialize(using = TourApiItemsDeserializer.class)
-            List<TourApiItem> items
+            List<LocationBasedItem> items
     ) {
     }
 }
