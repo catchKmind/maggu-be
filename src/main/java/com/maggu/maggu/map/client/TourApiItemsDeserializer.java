@@ -14,14 +14,14 @@ import java.util.List;
  * 결과 1건이면 item이 배열이 아닌 단일 객체로 내려온다(공공데이터 API 특유의 XML->JSON 변환 트릭)
  * 세 가지 형태(""/단일객체/배열) 전부 List<LocationBasedItem>으로 정규화한다.
  */
-class TourApiItemsDeserializer extends StdDeserializer<List<TourApiItem>> {
+class TourApiItemsDeserializer extends StdDeserializer<List<LocationBasedItem>> {
 
     TourApiItemsDeserializer() {
         super(List.class);
     }
 
     @Override
-    public List<TourApiItem> deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+    public List<LocationBasedItem> deserialize(JsonParser parser, DeserializationContext context) throws IOException {
         ObjectMapper mapper = (ObjectMapper) parser.getCodec();
         JsonNode itemsNode = mapper.readTree(parser);
 
@@ -35,8 +35,8 @@ class TourApiItemsDeserializer extends StdDeserializer<List<TourApiItem>> {
         }
         if (item.isArray()) {
             return mapper.convertValue(item,
-                    mapper.getTypeFactory().constructCollectionType(List.class, TourApiItem.class));
+                    mapper.getTypeFactory().constructCollectionType(List.class, LocationBasedItem.class));
         }
-        return List.of(mapper.treeToValue(item, TourApiItem.class));
+        return List.of(mapper.treeToValue(item, LocationBasedItem.class));
     }
 }

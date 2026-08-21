@@ -83,7 +83,7 @@ public class MapService {
     // 리포지토리 프로젝션 1건을 GeoJSON Feature(geometry+properties)로 변환
     private MapPostFeature toFeature(MapPostProjection projection, Map<String, Long> placePostCounts) {
 
-        MapPostGeometry geometry = MapPostGeometry.of(projection.getLng(), projection.getLat());
+        MapGeometry geometry = MapGeometry.of(projection.getLng(), projection.getLat());
 
         Integer placePostCount = projection.getTourismContentId() == null
                 ? null

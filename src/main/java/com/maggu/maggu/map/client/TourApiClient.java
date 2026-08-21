@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
-import com.maggu.maggu.map.dto.TourSpot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -157,7 +156,7 @@ public class TourApiClient {
         }
     }
 
-    private TourSpot toSpot(TourApiItem item) {
+    private TourSpot toSpot(LocationBasedItem item) {
         return new TourSpot(
                 item.contentId(),
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
