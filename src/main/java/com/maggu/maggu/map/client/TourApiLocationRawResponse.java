@@ -10,7 +10,7 @@ import java.util.List;
  * numOfRows/pageNo/totalCount 등 지금 안 쓰는 필드는 ignoreUnknown으로 무시
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-record TourApiRawResponse(Response response) {
+record TourApiLocationRawResponse(Response response) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Response(Header header, Body body) {
@@ -22,7 +22,7 @@ record TourApiRawResponse(Response response) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Body(
-            @JsonDeserialize(using = TourApiItemsDeserializer.class)
+            @JsonDeserialize(using = TourApiLocationItemsDeserializer.class)
             List<LocationBasedItem> items
     ) {
     }
