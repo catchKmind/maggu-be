@@ -15,6 +15,7 @@ import com.maggu.maggu.map.client.TourSpot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Profile("!test")
 public class TourSpotCacheInitializer {
 
     private final TourApiClient tourApiClient;
