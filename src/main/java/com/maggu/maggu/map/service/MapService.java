@@ -2,8 +2,10 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
+import com.maggu.maggu.map.client.TourSpot;
 import com.maggu.maggu.map.dto.*;
 import com.maggu.maggu.map.enums.MapCategory;
 import com.maggu.maggu.post.repository.MapPostProjection;
@@ -22,6 +24,19 @@ public class MapService {
 
     private final PostRepository postRepository;
     private final TourApiClient tourApiClient;
+    private final TourSpotCache tourSpotCache;
+
+    public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng) {
+        validateBbox(minLat, minLng, maxLat, maxLng);
+
+        List<TourSpot> tourSpots = tourSpotCache.findInBbox(minLng, minLat, maxLng, maxLat);
+
+        List<MapSpotFeature> features = tourSpots.stream()
+                .map(this::toFeature)
+                .toList();
+
+        return MapSpotsResponse.of(features);
+    }
 
     // bbox 유효성 검증 후 그 안의 게시글을 조회해 GeoJSON FeatureCollection으로 변환해 반환
     public MapPostsResponse getMapPosts(double minLat, double minLng, double maxLat, double maxLng,
@@ -78,6 +93,14 @@ public class MapService {
                 .filter(p -> p.getTourismContentId() != null
                         && category.getContentType().equals(contentTypesByContentId.get(p.getTourismContentId())))
                 .toList();
+    }
+
+    private MapSpotFeature toFeature(TourSpot spot) {
+
+        MapGeometry geometry = MapGeometry.of(spot.mapX(), spot.mapY());
+        TourSpotProperties properties = TourSpotProperties.from(spot);
+
+        return MapSpotFeature.of(geometry, properties);
     }
 
     // 리포지토리 프로젝션 1건을 GeoJSON Feature(geometry+properties)로 변환

@@ -2,10 +2,14 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
+import com.maggu.maggu.map.client.TourSpot;
 import com.maggu.maggu.map.dto.MapPostFeature;
 import com.maggu.maggu.map.dto.MapPostsResponse;
+import com.maggu.maggu.map.dto.MapSpotFeature;
+import com.maggu.maggu.map.dto.MapSpotsResponse;
 import com.maggu.maggu.map.enums.MapCategory;
 import com.maggu.maggu.post.repository.MapPostProjection;
 import com.maggu.maggu.post.repository.PostRepository;
@@ -39,8 +43,77 @@ class MapServiceTest {
     @Mock
     private TourApiClient tourApiClient;
 
+    @Mock
+    private TourSpotCache spotCache;
+
     @InjectMocks
     private MapService mapService;
+
+    @Nested
+    @DisplayName("getMapSpots")
+    class GetMapSpots {
+
+        @Test
+        @DisplayName("bbox 안의 스팟을 GeoJSON FeatureCollection으로 변환해 반환한다")
+        void getMapSpots() {
+            TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "남산타워", 127.05, 37.55);
+            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+
+            MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
+
+            assertThat(response.type()).isEqualTo("FeatureCollection");
+            assertThat(response.features()).hasSize(1);
+
+            MapSpotFeature feature = response.features().get(0);
+            assertThat(feature.type()).isEqualTo("Feature");
+            assertThat(feature.geometry().type()).isEqualTo("Point");
+            assertThat(feature.geometry().coordinates()).containsExactly(127.05, 37.55);
+            assertThat(feature.properties().contentId()).isEqualTo("126234");
+            assertThat(feature.properties().contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
+            assertThat(feature.properties().title()).isEqualTo("남산타워");
+        }
+
+        @Test
+        @DisplayName("좌표는 캐시에 (경도, 위도, 경도, 위도) 순서로 전달한다")
+        void passesLngLatInCorrectOrderToCache() {
+            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of());
+
+            mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
+
+            verify(spotCache).findInBbox(126.8, 37.4, 127.2, 37.7);
+        }
+
+        @Test
+        @DisplayName("bbox 안에 스팟이 없으면 features가 빈 리스트인 응답을 반환한다")
+        void returnsEmptyFeaturesWhenNoSpotsInBbox() {
+            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of());
+
+            MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
+
+            assertThat(response.type()).isEqualTo("FeatureCollection");
+            assertThat(response.features()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("minLat이 maxLat보다 크거나 같으면 예외를 던지고 조회하지 않는다")
+        void throwsWhenMinLatNotLessThanMaxLat() {
+            assertThatThrownBy(() -> mapService.getMapSpots(37.7, 126.8, 37.7, 127.2))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+            verifyNoInteractions(spotCache);
+        }
+
+        @Test
+        @DisplayName("위도가 범위(-90~90)를 벗어나면 예외를 던지고 조회하지 않는다")
+        void throwsWhenLatOutOfRange() {
+            assertThatThrownBy(() -> mapService.getMapSpots(-91, 126.8, 37.7, 127.2))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+            verifyNoInteractions(spotCache);
+        }
+    }
 
     @Nested
     @DisplayName("getMapPosts")
@@ -247,7 +320,7 @@ class MapServiceTest {
 
         // 카테고리 필터에서 걸러지는 게시글은 getSlug()/getLng() 등 일부 stub이 실제로 안 쓰일 수 있어 lenient 처리
         private MapPostProjection projection(Long postId, String slug, double lng, double lat, int scrapCount,
-                                              String tourismContentId, String placeName, String representativeImageUrl) {
+                                             String tourismContentId, String placeName, String representativeImageUrl) {
             MapPostProjection projection = mock(MapPostProjection.class);
             lenient().when(projection.getPostId()).thenReturn(postId);
             lenient().when(projection.getSlug()).thenReturn(slug);
