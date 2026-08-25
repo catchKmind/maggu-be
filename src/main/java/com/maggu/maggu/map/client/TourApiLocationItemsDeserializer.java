@@ -14,9 +14,10 @@ import java.util.List;
  * 결과 1건이면 item이 배열이 아닌 단일 객체로 내려온다(공공데이터 API 특유의 XML->JSON 변환 트릭)
  * 세 가지 형태(""/단일객체/배열) 전부 List<LocationBasedItem>으로 정규화한다.
  */
-class TourApiItemsDeserializer extends StdDeserializer<List<LocationBasedItem>> {
 
-    TourApiItemsDeserializer() {
+class TourApiLocationItemsDeserializer extends StdDeserializer<List<LocationBasedItem>> {
+
+    TourApiLocationItemsDeserializer() {
         super(List.class);
     }
 
