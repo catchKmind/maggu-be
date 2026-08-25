@@ -24,4 +24,14 @@ public class TourSpotCache {
                 .collect(Collectors.toMap(TourSpot::contentId, spot -> spot));
         cache.putAll(byContentId);
     }
+
+    // bbox 내에 있는 스팟들을 가져옴
+    public List<TourSpot> findInBbox(double minLng, double minLat, double maxLng, double maxLat) {
+        return cache.asMap()
+                .values()
+                .stream()
+                .filter(spot -> spot.mapX() <= maxLng && minLng <= spot.mapX()
+                        && spot.mapY() <= maxLat && minLat <= spot.mapY())
+                .toList();
+    }
 }
