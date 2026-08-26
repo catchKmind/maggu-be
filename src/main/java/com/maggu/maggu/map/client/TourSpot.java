@@ -1,5 +1,8 @@
 package com.maggu.maggu.map.client;
 
+import lombok.Builder;
+
+@Builder
 public record TourSpot(
         String contentId,
 
