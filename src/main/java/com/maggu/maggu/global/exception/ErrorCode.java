@@ -25,6 +25,7 @@ public enum ErrorCode {
 
     // Map
     EXTERNAL_TOURISM_API_ERROR(HttpStatus.BAD_GATEWAY, "MAP-001", "관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."),
+    MAP_CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "MAP-002", "유효하지 않은 장소입니다."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST-001", "게시글을 찾을 수 없습니다."),
