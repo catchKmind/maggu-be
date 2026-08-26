@@ -5,15 +5,10 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.List;
 
-/*
- * TourAPI 원본 JSON 구조 그대로 매핑 (response.header / response.body.items)
- * numOfRows/pageNo/totalCount 등 지금 안 쓰는 필드는 ignoreUnknown으로 무시
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
-record TourApiLocationRawResponse(Response response) {
-
+record TourApiRawResponse<T>(Response<T> response) {
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Response(Header header, Body body) {
+    record Response<T>(Header header, Body<T> body) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -21,9 +16,9 @@ record TourApiLocationRawResponse(Response response) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Body(
-            @JsonDeserialize(using = TourApiLocationItemsDeserializer.class)
-            List<LocationBasedItem> items
+    record Body<T>(
+            @JsonDeserialize(using = TourApiItemsDeserializer.class)
+            List<T> items
     ) {
     }
 }
