@@ -1,6 +1,7 @@
 package com.maggu.maggu.map.controller;
 
 import com.maggu.maggu.map.dto.MapPostsResponse;
+import com.maggu.maggu.map.dto.MapSpotDetail;
 import com.maggu.maggu.map.dto.MapSpotsResponse;
 import com.maggu.maggu.map.enums.MapCategory;
 import com.maggu.maggu.map.service.MapService;
@@ -8,10 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Map", description = "지도 관련 API")
 @RestController
@@ -43,5 +41,14 @@ public class MapController {
             @Parameter(description = "bbox 최대 경도 (-180 ~ 180)") @RequestParam double maxLng
     ) {
         return mapService.getMapSpots(minLat, minLng, maxLat, maxLng);
+    }
+
+    @Operation(summary = "관광지 스팟 상세 조회",
+            description = "contentId로 TourAPI(detailCommon2)를 실시간 호출해 이름/전화번호/주소/대표 이미지/좌표를 반환한다." +
+                    "영업시간(detailIntro2)과 연결된 게시글 목록(top6)은 아직 포함되지 않음 — TODO" +
+                    "images 필드는 현재 항상 빈 리스트 - TODO")
+    @GetMapping("/spots/{contentId}")
+    public MapSpotDetail getSpot(@Parameter(description = "관광지 콘텐츠 ID") @PathVariable String contentId) {
+        return mapService.getMapSpotDetail(contentId);
     }
 }
