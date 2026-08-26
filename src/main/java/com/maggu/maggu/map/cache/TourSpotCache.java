@@ -25,6 +25,10 @@ public class TourSpotCache {
         cache.putAll(byContentId);
     }
 
+    public void put(TourSpot spot) {
+        cache.put(spot.contentId(), spot);
+    }
+
     // bbox 내에 있는 스팟들을 가져옴
     public List<TourSpot> findInBbox(double minLng, double minLat, double maxLng, double maxLat) {
         return cache.asMap()
