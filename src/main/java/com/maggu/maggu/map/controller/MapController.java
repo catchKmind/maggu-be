@@ -43,10 +43,10 @@ public class MapController {
         return mapService.getMapSpots(minLat, minLng, maxLat, maxLng);
     }
 
+    // 1865597
     @Operation(summary = "관광지 스팟 상세 조회",
-            description = "contentId로 TourAPI(detailCommon2)를 실시간 호출해 이름/전화번호/주소/대표 이미지/좌표를 반환한다." +
-                    "영업시간(detailIntro2)과 연결된 게시글 목록(top6)은 아직 포함되지 않음 — TODO" +
-                    "images 필드는 현재 항상 빈 리스트 - TODO")
+            description = "contentId로 TourAPI(detailCommon2, detailImage2)를 실시간 호출해 이름/전화번호/주소/이미지/좌표를 반환한다." +
+                    "영업시간(detailIntro2)과 연결된 게시글 목록(top6)은 아직 포함되지 않음 — TODO")
     @GetMapping("/spots/{contentId}")
     public MapSpotDetail getSpot(@Parameter(description = "관광지 콘텐츠 ID") @PathVariable String contentId) {
         return mapService.getMapSpotDetail(contentId);
