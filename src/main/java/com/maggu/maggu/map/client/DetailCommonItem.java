@@ -15,12 +15,6 @@ record DetailCommonItem(
 
         String title,
 
-        @JsonProperty("firstimage")
-        String firstImage,
-
-        @JsonProperty("firstimage2")
-        String firstImage2,
-
         String addr1,
 
         String addr2,
