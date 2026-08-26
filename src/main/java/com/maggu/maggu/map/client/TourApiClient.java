@@ -1,6 +1,7 @@
 package com.maggu.maggu.map.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
 import com.maggu.maggu.global.exception.BusinessException;
@@ -62,8 +63,8 @@ public class TourApiClient {
         return parseSpots(rawBody);
     }
 
-    private TourApiAreaRawResponse validateAreaRawResponse(String rawBody) {
-        TourApiAreaRawResponse response = readAreaRawResponse(rawBody);
+    private <T> TourApiRawResponse<T> validateRawResponse(Class<T> itemType, String rawBody) {
+        TourApiRawResponse<T> response = readRawResponse(itemType, rawBody);
 
         if (response.response() == null) {
             log.warn("TourAPI 응답 형식이 예상과 다름: body={}", rawBody);
@@ -78,29 +79,6 @@ public class TourApiClient {
         }
 
         return response;
-    }
-
-    private TourApiLocationRawResponse validateLocationRawResponse(String rawBody) {
-        TourApiLocationRawResponse response = readLocationRawResponse(rawBody);
-
-        if (response.response() == null) {
-            log.warn("TourAPI 응답 형식이 예상과 다름: body={}", rawBody);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답 형식이 예상과 다름");
-        }
-
-        String resultCode = response.response().header().resultCode();
-        if (!SUCCESS_RESULT_CODE.equals(resultCode)) {
-            log.warn("TourAPI가 실패 응답 반환: resultCode={}, resultMsg={}",
-                    resultCode, response.response().header().resultMsg());
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI가 실패 응답 반환");
-        }
-
-        return response;
-    }
-
-    private Optional<ContentType> parseContentType(String rawBody) {
-        List<TourSpot> spots = parseSpots(rawBody);
-        return spots.isEmpty() ? Optional.empty() : Optional.of(spots.get(0).contentType());
     }
 
     private String requestRawBody(TourServiceArea area) {
@@ -188,8 +166,13 @@ public class TourApiClient {
         }
     }
 
+    private Optional<ContentType> parseContentType(String rawBody) {
+        List<TourSpot> spots = parseSpots(rawBody);
+        return spots.isEmpty() ? Optional.empty() : Optional.of(spots.get(0).contentType());
+    }
+
     private List<TourSpot> parseAreaSpots(String rawBody) {
-        TourApiAreaRawResponse response = validateAreaRawResponse(rawBody);
+        TourApiRawResponse<AreaBasedItem> response = validateRawResponse(AreaBasedItem.class, rawBody);
 
         return response.response().body().items().stream()
                 .map(this::toAreaSpotOrNull)
@@ -198,7 +181,7 @@ public class TourApiClient {
     }
 
     private List<TourSpot> parseSpots(String rawBody) {
-        TourApiLocationRawResponse response = validateLocationRawResponse(rawBody);
+        TourApiRawResponse<LocationBasedItem> response = validateRawResponse(LocationBasedItem.class, rawBody);
 
         try {
             return response.response().body().items().stream()
@@ -210,18 +193,10 @@ public class TourApiClient {
         }
     }
 
-    private TourApiAreaRawResponse readAreaRawResponse(String rawBody) {
+    private <T> TourApiRawResponse<T> readRawResponse(Class<T> itemType, String rawBody) {
         try {
-            return objectMapper.readValue(rawBody, TourApiAreaRawResponse.class);
-        } catch (JsonProcessingException e) {
-            log.warn("TourAPI 응답 파싱 실패: body={}", rawBody, e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답 파싱 실패");
-        }
-    }
-
-    private TourApiLocationRawResponse readLocationRawResponse(String rawBody) {
-        try {
-            return objectMapper.readValue(rawBody, TourApiLocationRawResponse.class);
+            JavaType type = objectMapper.getTypeFactory().constructParametricType(TourApiRawResponse.class, itemType);
+            return objectMapper.readValue(rawBody, type);
         } catch (JsonProcessingException e) {
             log.warn("TourAPI 응답 파싱 실패: body={}", rawBody, e);
             throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답 파싱 실패");
