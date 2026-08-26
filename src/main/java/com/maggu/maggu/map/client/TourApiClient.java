@@ -32,28 +32,27 @@ public class TourApiClient {
     private static final String ARRANGE_BY_DISTANCE = "E";
     private static final String SUCCESS_RESULT_CODE = "0000";
     private static final String AREA_BATCH_NUM_OF_ROWS = "4000";
+    private static final String DETAIL_IMAGE_NUM_OF_ROWS = "3";
 
     private final RestClient tourApiRestClient;
     private final TourismApiProperties properties;
     private final ObjectMapper objectMapper;
 
-
     public MapSpotDetail findSpotDetail(String contentId) {
-        String rawBody = requestRawBody(contentId);
+        String detailCommonRawBody = requestDetailCommonRawBody(contentId);
+        String imageRawBody = requestDetailImageRawBody(contentId);
 
-        return parseSpotDetail(rawBody);
+        return parseSpotDetail(detailCommonRawBody, imageRawBody);
     }
 
     public List<TourSpot> findAllByArea(TourServiceArea area) {
-
-        String rawBody = requestRawBody(area);
+        String rawBody = requestAreaBasedListRawBody(area);
 
         return parseAreaSpots(rawBody);
     }
 
     public Optional<ContentType> findContentType(String contentId) {
-
-        String rawBody = requestRawBody(contentId);
+        String rawBody = requestDetailCommonRawBody(contentId);
 
         return parseContentType(rawBody);
     }
@@ -65,7 +64,7 @@ public class TourApiClient {
     public List<TourSpot> findByLocation(
             double mapX, double mapY, int radiusMeters, Integer contentTypeId, int numOfRows) {
 
-        String rawBody = requestRawBody(mapX, mapY, radiusMeters, contentTypeId, numOfRows);
+        String rawBody = requestLocationBasedListRawBody(mapX, mapY, radiusMeters, contentTypeId, numOfRows);
 
         return parseSpots(rawBody);
     }
@@ -88,7 +87,18 @@ public class TourApiClient {
         return response;
     }
 
-    private String requestRawBody(TourServiceArea area) {
+    private <T> TourApiRawResponse<T> readRawResponse(Class<T> itemType, String rawBody) {
+        try {
+            JavaType type = objectMapper.getTypeFactory().constructParametricType(TourApiRawResponse.class, itemType);
+            return objectMapper.readValue(rawBody, type);
+        } catch (JsonProcessingException e) {
+            log.warn("TourAPI 응답 파싱 실패: body={}", rawBody, e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답 파싱 실패");
+        }
+    }
+
+    // 지역기반 관광정보 조회 API 호출
+    private String requestAreaBasedListRawBody(TourServiceArea area) {
         try {
             return tourApiRestClient.get()
                     .uri(uriBuilder -> {
@@ -114,7 +124,8 @@ public class TourApiClient {
         }
     }
 
-    private String requestRawBody(String contentId) {
+    // 공통 정보 조회 API 호출
+    private String requestDetailCommonRawBody(String contentId) {
         try {
             return tourApiRestClient.get()
                     .uri(uriBuilder -> {
@@ -139,7 +150,8 @@ public class TourApiClient {
         }
     }
 
-    private String requestRawBody(double mapX, double mapY, int radiusMeters, Integer contentTypeId, int numOfRows) {
+    // 위치기반 관광정보 조회 API 호출
+    private String requestLocationBasedListRawBody(double mapX, double mapY, int radiusMeters, Integer contentTypeId, int numOfRows) {
 
         try {
             return tourApiRestClient.get()
@@ -162,6 +174,31 @@ public class TourApiClient {
                         return uriBuilder.build();
                     })
                     .retrieve()
+                    .body(String.class);
+        } catch (RestClientResponseException e) {
+            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
+        } catch (RestClientException e) {
+            log.warn("TourAPI 호출 실패: ", e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
+        }
+    }
+
+    // 이미지 정보 조회 API 호출
+    private String requestDetailImageRawBody(String contentId) {
+        try {
+            return tourApiRestClient.get()
+                    .uri(uriBuilder -> {
+                        uriBuilder.path(DETAIL_IMAGE_PATH)
+                                .queryParam("numOfRows", DETAIL_IMAGE_NUM_OF_ROWS)
+                                .queryParam("MobileOS", MOBILE_OS)
+                                .queryParam("MobileApp", MOBILE_APP)
+                                .queryParam("serviceKey", properties.serviceKey())
+                                .queryParam("_type", RESPONSE_TYPE)
+                                .queryParam("contentId", contentId);
+                        return uriBuilder.build();
+                    }).retrieve()
                     .body(String.class);
         } catch (RestClientResponseException e) {
             log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
@@ -200,28 +237,23 @@ public class TourApiClient {
         }
     }
 
-    private MapSpotDetail parseSpotDetail(String rawBody) {
-        TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, rawBody);
+    private MapSpotDetail parseSpotDetail(String detailCommonRawBody, String imageRawBody) {
+        TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, detailCommonRawBody);
+        TourApiRawResponse<DetailImageItem> imageResponse = validateRawResponse(DetailImageItem.class, imageRawBody);
 
         try {
             DetailCommonItem detailCommonItem = response.response().body().items().stream()
                     .findFirst()
                     .orElseThrow(() -> new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
 
-            return toSpotDetail(detailCommonItem);
-        } catch (IllegalArgumentException e) {
-            log.warn("TourAPI 응답의 필드 값을 해석할 수 없음: body={}", rawBody, e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답의 필드 값을 해석할 수 없음");
-        }
-    }
+            List<String> images = imageResponse.response().body().items().stream()
+                    .map(DetailImageItem::originImgUrl)
+                    .toList();
 
-    private <T> TourApiRawResponse<T> readRawResponse(Class<T> itemType, String rawBody) {
-        try {
-            JavaType type = objectMapper.getTypeFactory().constructParametricType(TourApiRawResponse.class, itemType);
-            return objectMapper.readValue(rawBody, type);
-        } catch (JsonProcessingException e) {
-            log.warn("TourAPI 응답 파싱 실패: body={}", rawBody, e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답 파싱 실패");
+            return toSpotDetail(detailCommonItem, images);
+        } catch (IllegalArgumentException e) {
+            log.warn("TourAPI 응답의 필드 값을 해석할 수 없음: body={}", detailCommonRawBody, e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답의 필드 값을 해석할 수 없음");
         }
     }
 
@@ -251,14 +283,14 @@ public class TourApiClient {
         );
     }
 
-    private MapSpotDetail toSpotDetail(DetailCommonItem item) {
+    private MapSpotDetail toSpotDetail(DetailCommonItem item, List<String> images) {
         return new MapSpotDetail(
                 item.contentId(),
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
                 item.tel(),
                 item.title(),
                 item.addr1() + " " + item.addr2(),
-                List.of(),
+                images,
                 Double.parseDouble(item.mapX()),
                 Double.parseDouble(item.mapY())
         );
