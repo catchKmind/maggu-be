@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.dto.MapSpotDetail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -13,9 +14,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -25,6 +24,7 @@ public class TourApiClient {
     private static final String LOCATION_BASED_LIST_PATH = "/locationBasedList2";
     private static final String DETAIL_COMMON_PATH = "/detailCommon2";
     private static final String AREA_BASED_LIST_PATH = "/areaBasedList2";
+    private static final String DETAIL_IMAGE_PATH = "/detailImage2";
 
     private static final String MOBILE_OS = "ETC";
     private static final String MOBILE_APP = "maggu";
@@ -36,6 +36,13 @@ public class TourApiClient {
     private final RestClient tourApiRestClient;
     private final TourismApiProperties properties;
     private final ObjectMapper objectMapper;
+
+
+    public MapSpotDetail findSpotDetail(String contentId) {
+        String rawBody = requestRawBody(contentId);
+
+        return parseSpotDetail(rawBody);
+    }
 
     public List<TourSpot> findAllByArea(TourServiceArea area) {
 
@@ -193,6 +200,21 @@ public class TourApiClient {
         }
     }
 
+    private MapSpotDetail parseSpotDetail(String rawBody) {
+        TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, rawBody);
+
+        try {
+            DetailCommonItem detailCommonItem = response.response().body().items().stream()
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+
+            return toSpotDetail(detailCommonItem);
+        } catch (IllegalArgumentException e) {
+            log.warn("TourAPI 응답의 필드 값을 해석할 수 없음: body={}", rawBody, e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답의 필드 값을 해석할 수 없음");
+        }
+    }
+
     private <T> TourApiRawResponse<T> readRawResponse(Class<T> itemType, String rawBody) {
         try {
             JavaType type = objectMapper.getTypeFactory().constructParametricType(TourApiRawResponse.class, itemType);
@@ -224,6 +246,19 @@ public class TourApiClient {
                 item.contentId(),
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
                 item.title(),
+                Double.parseDouble(item.mapX()),
+                Double.parseDouble(item.mapY())
+        );
+    }
+
+    private MapSpotDetail toSpotDetail(DetailCommonItem item) {
+        return new MapSpotDetail(
+                item.contentId(),
+                ContentType.fromId(Integer.parseInt(item.contentTypeId())),
+                item.tel(),
+                item.title(),
+                item.addr1() + " " + item.addr2(),
+                List.of(),
                 Double.parseDouble(item.mapX()),
                 Double.parseDouble(item.mapY())
         );
