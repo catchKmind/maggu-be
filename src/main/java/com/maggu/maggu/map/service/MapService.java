@@ -26,6 +26,15 @@ public class MapService {
     private final TourApiClient tourApiClient;
     private final TourSpotCache tourSpotCache;
 
+    public MapSpotDetail getMapSpotDetail(String contentId) {
+
+        MapSpotDetail mapSpotDetail = tourApiClient.findSpotDetail(contentId);
+
+        tourSpotCache.put(toSpot(mapSpotDetail));
+
+        return mapSpotDetail;
+    }
+
     public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng) {
         validateBbox(minLat, minLng, maxLat, maxLng);
 
@@ -127,5 +136,15 @@ public class MapService {
         if (minLat < -90 || maxLat > 90 || minLng < -180 || maxLng > 180) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private TourSpot toSpot(MapSpotDetail mapSpotDetail) {
+        return TourSpot.builder()
+                .contentId(mapSpotDetail.contentId())
+                .contentType(mapSpotDetail.contentType())
+                .title(mapSpotDetail.title())
+                .mapX(mapSpotDetail.lng())
+                .mapY(mapSpotDetail.lat())
+                .build();
     }
 }
