@@ -15,6 +15,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 @Slf4j
 @Component
@@ -39,10 +41,26 @@ public class TourApiClient {
     private final ObjectMapper objectMapper;
 
     public MapSpotDetail findSpotDetail(String contentId) {
-        String detailCommonRawBody = requestDetailCommonRawBody(contentId);
-        String imageRawBody = requestDetailImageRawBody(contentId);
+        CompletableFuture<String> detailCommonFuture = CompletableFuture.supplyAsync(() -> requestDetailCommonRawBody(contentId));
+        CompletableFuture<String> imageFuture = CompletableFuture.supplyAsync(() -> requestDetailImageRawBody(contentId))
+                .exceptionally(throwable -> {
+                    log.warn("이미지 조회 실패, 빈 이미지로 대체: contentId={}", contentId, throwable);
+                    return null;
+                });
 
-        return parseSpotDetail(detailCommonRawBody, imageRawBody);
+        try {
+            String detailCommonRawBody = detailCommonFuture.join();
+            String imageRawBody = imageFuture.join();
+
+            return parseSpotDetail(detailCommonRawBody, imageRawBody);
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof BusinessException businessException) {
+                throw businessException;
+            } else {
+                log.warn("예상치 못한 예외 발생", e.getCause());
+                throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR);
+            }
+        }
     }
 
     public List<TourSpot> findAllByArea(TourServiceArea area) {
@@ -239,16 +257,23 @@ public class TourApiClient {
 
     private MapSpotDetail parseSpotDetail(String detailCommonRawBody, String imageRawBody) {
         TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, detailCommonRawBody);
-        TourApiRawResponse<DetailImageItem> imageResponse = validateRawResponse(DetailImageItem.class, imageRawBody);
+
+        List<String> images = List.of();
+        if (imageRawBody != null) {
+            try {
+                TourApiRawResponse<DetailImageItem> imageResponse = validateRawResponse(DetailImageItem.class, imageRawBody);
+                images = imageResponse.response().body().items().stream()
+                        .map(DetailImageItem::originImgUrl)
+                        .toList();
+            } catch (BusinessException e) {
+                log.warn("이미지 응답 검증 실패, 빈 이미지로 대체: {}", e.getMessage());
+            }
+        }
 
         try {
             DetailCommonItem detailCommonItem = response.response().body().items().stream()
                     .findFirst()
                     .orElseThrow(() -> new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
-
-            List<String> images = imageResponse.response().body().items().stream()
-                    .map(DetailImageItem::originImgUrl)
-                    .toList();
 
             return toSpotDetail(detailCommonItem, images);
         } catch (IllegalArgumentException e) {
