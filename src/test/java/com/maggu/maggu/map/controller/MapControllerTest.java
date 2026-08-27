@@ -7,6 +7,7 @@ import com.maggu.maggu.map.dto.MapGeometry;
 import com.maggu.maggu.map.dto.MapPostFeature;
 import com.maggu.maggu.map.dto.MapPostProperties;
 import com.maggu.maggu.map.dto.MapPostsResponse;
+import com.maggu.maggu.map.dto.MapSpotDetail;
 import com.maggu.maggu.map.dto.MapSpotFeature;
 import com.maggu.maggu.map.dto.MapSpotsResponse;
 import com.maggu.maggu.map.dto.TourSpotProperties;
@@ -165,6 +166,37 @@ class MapControllerTest {
                     .param("maxLat", "37.7"));
 
             verifyNoInteractions(mapService);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/map/spots/{contentId}")
+    class GetSpotDetail {
+
+        @Test
+        @DisplayName("정상 contentId로 요청하면 200과 함께 관광지 상세 정보를 반환한다")
+        void returnsSpotDetail() throws Exception {
+            MapSpotDetail detail = new MapSpotDetail(
+                    "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
+                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"), 127.05, 37.55);
+            given(mapService.getMapSpotDetail("126234")).willReturn(detail);
+
+            mockMvc.perform(get("/api/v1/map/spots/{contentId}", "126234"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.contentId").value("126234"))
+                    .andExpect(jsonPath("$.data.title").value("남산타워"))
+                    .andExpect(jsonPath("$.data.images[0]").value("https://img/a.jpg"));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 contentId면 404를 반환한다")
+        void returnsNotFoundWhenContentIdDoesNotExist() throws Exception {
+            given(mapService.getMapSpotDetail("999"))
+                    .willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+
+            mockMvc.perform(get("/api/v1/map/spots/{contentId}", "999"))
+                    .andExpect(status().isNotFound());
         }
     }
 }
