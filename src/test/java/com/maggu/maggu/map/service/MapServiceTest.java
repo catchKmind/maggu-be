@@ -8,6 +8,7 @@ import com.maggu.maggu.map.client.TourApiClient;
 import com.maggu.maggu.map.client.TourSpot;
 import com.maggu.maggu.map.dto.MapPostFeature;
 import com.maggu.maggu.map.dto.MapPostsResponse;
+import com.maggu.maggu.map.dto.MapSpotDetail;
 import com.maggu.maggu.map.dto.MapSpotFeature;
 import com.maggu.maggu.map.dto.MapSpotsResponse;
 import com.maggu.maggu.map.enums.MapCategory;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -331,6 +333,47 @@ class MapServiceTest {
             lenient().when(projection.getPlaceName()).thenReturn(placeName);
             lenient().when(projection.getRepresentativeImageUrl()).thenReturn(representativeImageUrl);
             return projection;
+        }
+    }
+
+    @Nested
+    @DisplayName("getMapSpotDetail")
+    class GetMapSpotDetail {
+
+        @Test
+        @DisplayName("TourAPI 조회 결과를 그대로 반환하고, 그 스팟을 TourSpotCache에 upsert한다")
+        void returnsDetailAndUpsertsCache() {
+            MapSpotDetail detail = new MapSpotDetail(
+                    "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
+                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"), 127.05, 37.55);
+            given(tourApiClient.findSpotDetail("126234")).willReturn(detail);
+
+            MapSpotDetail response = mapService.getMapSpotDetail("126234");
+
+            assertThat(response).isEqualTo(detail);
+
+            ArgumentCaptor<TourSpot> captor = ArgumentCaptor.forClass(TourSpot.class);
+            verify(spotCache).put(captor.capture());
+
+            TourSpot cached = captor.getValue();
+            assertThat(cached.contentId()).isEqualTo("126234");
+            assertThat(cached.contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
+            assertThat(cached.title()).isEqualTo("남산타워");
+            assertThat(cached.mapX()).isEqualTo(127.05);
+            assertThat(cached.mapY()).isEqualTo(37.55);
+        }
+
+        @Test
+        @DisplayName("TourAPI 조회가 실패하면 예외를 그대로 던지고, 캐시에는 아무것도 반영하지 않는다")
+        void doesNotUpsertCacheWhenTourApiFails() {
+            given(tourApiClient.findSpotDetail("999"))
+                    .willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+
+            assertThatThrownBy(() -> mapService.getMapSpotDetail("999"))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.MAP_CONTENT_NOT_FOUND));
+
+            verifyNoInteractions(spotCache);
         }
     }
 }
