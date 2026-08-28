@@ -27,6 +27,7 @@ public class TourApiClient {
     private static final String DETAIL_COMMON_PATH = "/detailCommon2";
     private static final String AREA_BASED_LIST_PATH = "/areaBasedList2";
     private static final String DETAIL_IMAGE_PATH = "/detailImage2";
+    private static final String DETAIL_INTRO_PATH = "/detailIntro2";
 
     private static final String MOBILE_OS = "ETC";
     private static final String MOBILE_APP = "maggu";
@@ -47,12 +48,27 @@ public class TourApiClient {
                     log.warn("이미지 조회 실패, 빈 이미지로 대체: contentId={}", contentId, throwable);
                     return null;
                 });
+        CompletableFuture<String> introFuture = detailCommonFuture.thenCompose(detailCommonRawBody -> {
+            String contentTypeId = extractContentTypeId(detailCommonRawBody);
+
+            if (contentTypeId.equals("12") || contentTypeId.equals("15") || contentTypeId.equals("39")) {
+                return CompletableFuture.supplyAsync(() -> requestDetailIntroRawBody(contentId, contentTypeId))
+                        .exceptionally(throwable -> {
+                            log.warn("영업 관련 정보 조회 실패, null로 대체: contentId={}", contentId, throwable);
+                            return null;
+                        });
+            } else {
+                log.warn("서비스에서 지원하는 콘텐츠 타입 아님, 지원하는 콘텐츠 타입: 12|15|39: contentId={}, contentTypeId={}", contentId, contentTypeId);
+                return CompletableFuture.completedFuture(null);
+            }
+        });
 
         try {
             String detailCommonRawBody = detailCommonFuture.join();
             String imageRawBody = imageFuture.join();
+            String introRawBody = introFuture.join();
 
-            return parseSpotDetail(detailCommonRawBody, imageRawBody);
+            return parseSpotDetail(detailCommonRawBody, imageRawBody, introRawBody);
         } catch (CompletionException e) {
             if (e.getCause() instanceof BusinessException businessException) {
                 throw businessException;
@@ -175,16 +191,16 @@ public class TourApiClient {
             return tourApiRestClient.get()
                     .uri(uriBuilder -> {
                         uriBuilder.path(LOCATION_BASED_LIST_PATH)
+                                .queryParam("arrange", ARRANGE_BY_DISTANCE)
+                                .queryParam("mapX", mapX)
+                                .queryParam("mapY", mapY)
+                                .queryParam("radius", radiusMeters)
                                 .queryParam("pageNo", 1)
                                 .queryParam("numOfRows", numOfRows)
                                 .queryParam("MobileOS", MOBILE_OS)
                                 .queryParam("MobileApp", MOBILE_APP)
                                 .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE)
-                                .queryParam("arrange", ARRANGE_BY_DISTANCE)
-                                .queryParam("mapX", mapX)
-                                .queryParam("mapY", mapY)
-                                .queryParam("radius", radiusMeters);
+                                .queryParam("_type", RESPONSE_TYPE);
                         if (contentTypeId != null) {
                             uriBuilder.queryParam("contentTypeId", contentTypeId);
                         }
@@ -209,12 +225,12 @@ public class TourApiClient {
             return tourApiRestClient.get()
                     .uri(uriBuilder -> {
                         uriBuilder.path(DETAIL_IMAGE_PATH)
+                                .queryParam("contentId", contentId)
                                 .queryParam("numOfRows", DETAIL_IMAGE_NUM_OF_ROWS)
                                 .queryParam("MobileOS", MOBILE_OS)
                                 .queryParam("MobileApp", MOBILE_APP)
                                 .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE)
-                                .queryParam("contentId", contentId);
+                                .queryParam("_type", RESPONSE_TYPE);
                         return uriBuilder.build();
                     }).retrieve()
                     .body(String.class);
@@ -226,6 +242,40 @@ public class TourApiClient {
             log.warn("TourAPI 호출 실패: ", e);
             throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
         }
+    }
+
+    // 영업 시간 조회 API 호출
+    private String requestDetailIntroRawBody(String contentId, String contentTypeId) {
+        try {
+            return tourApiRestClient.get()
+                    .uri(uriBuilder -> {
+                        uriBuilder.path(DETAIL_INTRO_PATH)
+                                .queryParam("contentId", contentId)
+                                .queryParam("contentTypeId", contentTypeId)
+                                .queryParam("MobileOS", MOBILE_OS)
+                                .queryParam("MobileApp", MOBILE_APP)
+                                .queryParam("serviceKey", properties.serviceKey())
+                                .queryParam("_type", RESPONSE_TYPE);
+                        return uriBuilder.build();
+                    }).retrieve()
+                    .body(String.class);
+        } catch (RestClientResponseException e) {
+            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
+        } catch (RestClientException e) {
+            log.warn("TourAPI 호출 실패: ", e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
+        }
+    }
+
+    private String extractContentTypeId(String detailCommonRawBody) {
+        TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, detailCommonRawBody);
+
+        return response.response().body().items().stream()
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND))
+                .contentTypeId();
     }
 
     private Optional<ContentType> parseContentType(String rawBody) {
@@ -255,7 +305,7 @@ public class TourApiClient {
         }
     }
 
-    private MapSpotDetail parseSpotDetail(String detailCommonRawBody, String imageRawBody) {
+    private MapSpotDetail parseSpotDetail(String detailCommonRawBody, String imageRawBody, String introRawBody) {
         TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, detailCommonRawBody);
 
         List<String> images = List.of();
@@ -275,7 +325,59 @@ public class TourApiClient {
                     .findFirst()
                     .orElseThrow(() -> new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
 
-            return toSpotDetail(detailCommonItem, images);
+            String businessHours = null;
+            String closedDays = null;
+            String eventPeriod = null;
+            String introTel = null;
+            if (introRawBody != null) {
+                try {
+                    switch (detailCommonItem.contentTypeId()) {
+                        case "12" -> {
+                            TourApiRawResponse<DetailIntroAttractionItem> introResponse = validateRawResponse(DetailIntroAttractionItem.class, introRawBody);
+                            DetailIntroAttractionItem item = introResponse.response().body().items().stream()
+                                    .findFirst()
+                                    .orElse(null);
+                            if (item != null) {
+                                businessHours = item.useTime();
+                                closedDays = item.restDate();
+                                introTel = item.infoCenter();
+                            }
+                        }
+                        case "15" -> {
+                            TourApiRawResponse<DetailIntroEventItem> introResponse = validateRawResponse(DetailIntroEventItem.class, introRawBody);
+                            DetailIntroEventItem item = introResponse.response().body().items().stream()
+                                    .findFirst()
+                                    .orElse(null);
+                            if (item != null) {
+                                businessHours = item.playTime();
+                                eventPeriod = item.eventStartDate() + " - " + item.eventEndDate();
+                                introTel = item.sponsorTel();
+                            }
+                        }
+                        case "39" -> {
+                            TourApiRawResponse<DetailIntroRestaurantItem> introResponse = validateRawResponse(DetailIntroRestaurantItem.class, introRawBody);
+                            DetailIntroRestaurantItem item = introResponse.response().body().items().stream()
+                                    .findFirst()
+                                    .orElse(null);
+                            if (item != null) {
+                                businessHours = item.openTime();
+                                closedDays = item.restDate();
+                                introTel = item.infoCenter();
+                            }
+                        }
+                        default ->
+                                log.warn("영업시간 정보가 없는 타입: contentId={}, contentTypeId={}", detailCommonItem.contentId(), detailCommonItem.contentTypeId());
+                    }
+                } catch (BusinessException e) {
+                    log.warn("영업시간 관련 응답 검증 실패, null로 대체: {}", e.getMessage());
+                }
+            }
+
+            String tel = (detailCommonItem.tel() == null || detailCommonItem.tel().isBlank())
+                    ? introTel
+                    : detailCommonItem.tel();
+
+            return toSpotDetail(detailCommonItem, images, businessHours, closedDays, eventPeriod, tel);
         } catch (IllegalArgumentException e) {
             log.warn("TourAPI 응답의 필드 값을 해석할 수 없음: body={}", detailCommonRawBody, e);
             throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답의 필드 값을 해석할 수 없음");
@@ -308,14 +410,20 @@ public class TourApiClient {
         );
     }
 
-    private MapSpotDetail toSpotDetail(DetailCommonItem item, List<String> images) {
+    private MapSpotDetail toSpotDetail(DetailCommonItem item,
+                                       List<String> images,
+                                       String businessHours, String closedDays, String eventPeriod,
+                                       String tel) {
         return new MapSpotDetail(
                 item.contentId(),
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
-                item.tel(),
+                tel,
                 item.title(),
                 item.addr1() + " " + item.addr2(),
                 images,
+                businessHours,
+                closedDays,
+                eventPeriod,
                 Double.parseDouble(item.mapX()),
                 Double.parseDouble(item.mapY())
         );

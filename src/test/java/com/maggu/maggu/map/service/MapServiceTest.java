@@ -345,7 +345,8 @@ class MapServiceTest {
         void returnsDetailAndUpsertsCache() {
             MapSpotDetail detail = new MapSpotDetail(
                     "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
-                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"), 127.05, 37.55);
+                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
+                    "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
             given(tourApiClient.findSpotDetail("126234")).willReturn(detail);
 
             MapSpotDetail response = mapService.getMapSpotDetail("126234");

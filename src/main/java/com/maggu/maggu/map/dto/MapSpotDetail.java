@@ -25,6 +25,15 @@ public record MapSpotDetail(
         @Schema(description = "대표 이미지 url List")
         List<String> images,
 
+        @Schema(description = "영업 시간")
+        String businessHours,
+
+        @Schema(description = "휴무일")
+        String closedDays,
+
+        @Schema(description = "축제 기간")
+        String eventPeriod,
+
         @Schema(description = "경도 (tourAPI의 mapX 값)")
         Double lng,
 

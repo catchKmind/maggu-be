@@ -178,7 +178,8 @@ class MapControllerTest {
         void returnsSpotDetail() throws Exception {
             MapSpotDetail detail = new MapSpotDetail(
                     "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
-                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"), 127.05, 37.55);
+                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
+                    "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
             given(mapService.getMapSpotDetail("126234")).willReturn(detail);
 
             mockMvc.perform(get("/api/v1/map/spots/{contentId}", "126234"))
