@@ -23,6 +23,6 @@ record DetailIntroAttractionItem(
         String useTime,
 
         @JsonProperty("infocenter")
-        String tel
+        String infoCenter
 ) {
 }

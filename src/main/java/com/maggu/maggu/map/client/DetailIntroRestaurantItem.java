@@ -23,6 +23,6 @@ record DetailIntroRestaurantItem(
         String restDate,
 
         @JsonProperty("infocenterfood")
-        String tel
+        String infoCenter
 ) {
 }

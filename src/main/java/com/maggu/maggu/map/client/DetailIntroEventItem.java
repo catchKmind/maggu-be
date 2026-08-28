@@ -26,6 +26,6 @@ record DetailIntroEventItem(
         String playTime,
 
         @JsonProperty("sponsor1tel")
-        String tel
+        String sponsorTel
 ) {
 }
