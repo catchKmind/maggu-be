@@ -59,7 +59,7 @@ public class TourApiClient {
                         });
             } else {
                 log.warn("서비스에서 지원하는 콘텐츠 타입 아님, 지원하는 콘텐츠 타입: 12|15|39: contentId={}, contentTypeId={}", contentId, contentTypeId);
-                return null;
+                return CompletableFuture.completedFuture(null);
             }
         });
 
@@ -328,6 +328,7 @@ public class TourApiClient {
             String businessHours = null;
             String closedDays = null;
             String eventPeriod = null;
+            String introTel = null;
             if (introRawBody != null) {
                 try {
                     switch (detailCommonItem.contentTypeId()) {
@@ -339,6 +340,7 @@ public class TourApiClient {
                             if (item != null) {
                                 businessHours = item.useTime();
                                 closedDays = item.restDate();
+                                introTel = item.infoCenter();
                             }
                         }
                         case "15" -> {
@@ -349,6 +351,7 @@ public class TourApiClient {
                             if (item != null) {
                                 businessHours = item.playTime();
                                 eventPeriod = item.eventStartDate() + " - " + item.eventEndDate();
+                                introTel = item.sponsorTel();
                             }
                         }
                         case "39" -> {
@@ -359,6 +362,7 @@ public class TourApiClient {
                             if (item != null) {
                                 businessHours = item.openTime();
                                 closedDays = item.restDate();
+                                introTel = item.infoCenter();
                             }
                         }
                         default ->
@@ -369,7 +373,11 @@ public class TourApiClient {
                 }
             }
 
-            return toSpotDetail(detailCommonItem, images, businessHours, closedDays, eventPeriod);
+            String tel = (detailCommonItem.tel() == null || detailCommonItem.tel().isBlank())
+                    ? introTel
+                    : detailCommonItem.tel();
+
+            return toSpotDetail(detailCommonItem, images, businessHours, closedDays, eventPeriod, tel);
         } catch (IllegalArgumentException e) {
             log.warn("TourAPI 응답의 필드 값을 해석할 수 없음: body={}", detailCommonRawBody, e);
             throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 응답의 필드 값을 해석할 수 없음");
@@ -402,11 +410,14 @@ public class TourApiClient {
         );
     }
 
-    private MapSpotDetail toSpotDetail(DetailCommonItem item, List<String> images, String businessHours, String closedDays, String eventPeriod) {
+    private MapSpotDetail toSpotDetail(DetailCommonItem item,
+                                       List<String> images,
+                                       String businessHours, String closedDays, String eventPeriod,
+                                       String tel) {
         return new MapSpotDetail(
                 item.contentId(),
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
-                item.tel(),
+                tel,
                 item.title(),
                 item.addr1() + " " + item.addr2(),
                 images,
