@@ -39,7 +39,5 @@ public record MapSpotDetail(
 
         @Schema(description = "위도 (tourAPI의 mapY 값)")
         Double lat
-
-        // TODO: post 관련 추가
 ) {
 }
