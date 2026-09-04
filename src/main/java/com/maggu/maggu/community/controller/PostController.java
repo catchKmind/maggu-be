@@ -2,12 +2,16 @@ package com.maggu.maggu.community.controller;
 
 import com.maggu.maggu.community.dto.request.PostCreateRequest;
 import com.maggu.maggu.community.dto.response.*;
+import com.maggu.maggu.community.dto.enums.FeedSort;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.service.PostCommandService;
+import com.maggu.maggu.community.service.PostFeedService;
 import com.maggu.maggu.community.service.PostQueryService;
 import com.maggu.maggu.global.auth.CurrentUser;
+import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +32,9 @@ public class PostController {
 
     private final PostQueryService queryService;
     private final PostCommandService commandService;
+    private final PostFeedService feedService;
+
+    private static final int MAX_FEED_SIZE = 100;
 
     @PostMapping
     @Operation(summary = "게시글 작성", description = "사진 0~4장, 본문 500자, 사진이 있으면 위치 정보 필수")
@@ -100,5 +107,20 @@ public class PostController {
             @CurrentUser AppUser user
     ) {
         return queryService.getCuration(user);
+    }
+
+    @GetMapping("/feed")
+    @Operation(summary = "관광지 연결 게시글 피드 조회",
+            description = "특정 관광지(contentId)에 연결된 게시글을 인기순(popular)/최신순(latest)으로 커서 기반 무한 스크롤 조회")
+    public CursorPageResponse<PostFeedItemResponse> getFeedByContentId(
+            @Parameter(description = "관광지 콘텐츠 ID") @RequestParam() String contentId,
+            @Parameter(description = "인기순(POPULAR) / 최신순(LATEST)으로 분류") @RequestParam String feedSort,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        FeedSort sort = FeedSort.from(feedSort);
+        int clampSize = Math.min(size, MAX_FEED_SIZE);
+
+        return feedService.getFeed(contentId, sort, cursor, clampSize);
     }
 }
