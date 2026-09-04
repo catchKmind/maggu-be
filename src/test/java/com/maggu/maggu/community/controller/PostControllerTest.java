@@ -119,11 +119,8 @@ class PostControllerTest {
                             .param("contentId", "126234")
                             .param("feedSort", "INVALID"))
                     .andExpect(status().isBadRequest())
-                    // 알려진 버그: ResponseWrappingAdvice가 에러 응답을 한번 더 감싸서
-                    // 실제 에러 정보는 $.success/$.code가 아니라 $.data.success/$.data.code에 들어간다.
-                    // (MapControllerTest의 동일 케이스와 같은 이유 — 별도 이슈로 분리됨)
-                    .andExpect(jsonPath("$.data.success").value(false))
-                    .andExpect(jsonPath("$.data.code").value("COMMON-001"));
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("COMMON-001"));
 
             verifyNoInteractions(feedService);
         }
@@ -139,8 +136,8 @@ class PostControllerTest {
                             .param("feedSort", "POPULAR")
                             .param("cursor", "broken-cursor"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.data.success").value(false))
-                    .andExpect(jsonPath("$.data.code").value("COMMON-001"));
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("COMMON-001"));
         }
     }
 }

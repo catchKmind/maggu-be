@@ -1,6 +1,8 @@
 package com.maggu.maggu.global.response;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.core.ResolvableType;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -21,13 +23,23 @@ public class ResponseWrappingAdvice implements ResponseBodyAdvice<Object> {
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
         Class<?> type = returnType.getParameterType();
-        return !ApiResponse.class.isAssignableFrom(type) && !String.class.isAssignableFrom(type);
+
+        if (String.class.isAssignableFrom(type)) {
+            return false;
+        }
+
+        if (HttpEntity.class.isAssignableFrom(type)) {
+            Class<?> bodyType = ResolvableType.forMethodParameter(returnType).getGeneric(0).resolve();
+            return bodyType != null && !ApiResponse.class.isAssignableFrom(bodyType);
+        }
+
+        return !ApiResponse.class.isAssignableFrom(type);
     }
 
     @Override
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
-                                   Class<? extends HttpMessageConverter<?>> selectedConverterType,
-                                   ServerHttpRequest request, ServerHttpResponse response) {
+                                  Class<? extends HttpMessageConverter<?>> selectedConverterType,
+                                  ServerHttpRequest request, ServerHttpResponse response) {
         int status = (response instanceof ServletServerHttpResponse servletResponse)
                 ? servletResponse.getServletResponse().getStatus()
                 : HttpStatus.OK.value();

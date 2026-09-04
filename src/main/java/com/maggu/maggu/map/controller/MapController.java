@@ -47,7 +47,7 @@ public class MapController {
     @Operation(summary = "관광지 스팟 상세 조회",
             description = "contentId로 TourAPI(/detailCommon2, /detailImage2, /detailIntro2)를 실시간 호출해 " +
                     "이름/전화번호/주소/이미지/영업시간/휴무일/축제기간/좌표를 반환한다." +
-                    "연결된 게시글 목록(top6)은 아직 포함되지 않음(TODO)")
+                    "연결된 게시글 목록은 이 응답에 포함되지 않으며, GET /api/v1/community/posts/feed?contentId={contentId}로 별도 조회한다.")
     @GetMapping("/spots/{contentId}")
     public MapSpotDetail getSpot(@Parameter(description = "관광지 콘텐츠 ID") @PathVariable String contentId) {
         return mapService.getMapSpotDetail(contentId);

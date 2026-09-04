@@ -114,10 +114,6 @@ class MapControllerTest {
 
         @Test
         @DisplayName("서비스에서 BusinessException이 발생하면 해당 에러코드로 응답한다")
-            // 알려진 버그: ResponseWrappingAdvice가 GlobalExceptionHandler의 ApiResponse.error(...)를
-            // 다시 한번 ApiResponse.success(...)로 감싸서, 최상위 success/code가 아니라 $.data.success/$.data.code에
-            // 실제 에러 정보가 들어간다. HTTP 상태코드(400)는 정상이라 이 테스트는 지금의 실제 동작을 그대로 검증한다.
-            // 원인 조사/수정은 별도 이슈로 분리하기로 함 — 고쳐지면 이 테스트도 $.success/$.code로 되돌려야 한다.
         void returnsErrorBodyWhenServiceThrowsBusinessException() throws Exception {
             given(mapService.getMapPosts(37.7, 126.8, 37.4, 127.2, null))
                     .willThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
@@ -128,8 +124,8 @@ class MapControllerTest {
                             .param("maxLat", "37.4")
                             .param("maxLng", "127.2"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.data.success").value(false))
-                    .andExpect(jsonPath("$.data.code").value("COMMON-001"));
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("COMMON-001"));
         }
     }
 
