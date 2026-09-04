@@ -58,6 +58,13 @@ class TourApiItemsDeserializer extends StdDeserializer<List<Object>> implements 
             JavaType listType = mapper.getTypeFactory().constructCollectionType(List.class, contentType);
             return mapper.convertValue(item, listType);
         }
+
+        /*
+         * List.of(mapper.convertValue(item, contentType))로 한 줄로 합치지 말 것:
+         * convertValue의 반환 타입 T가 인자로부터 아무 힌트를 못 받는 상태라 List.of의 오버로드
+         * 해석이 꼬여서(가변인자로 오인) ClassCastException이 남.
+         * 변수로 먼저 타입을 확정해야 함.
+         * */
         Object singleItem = mapper.convertValue(item, contentType);
         return List.of(singleItem);
     }

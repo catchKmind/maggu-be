@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -100,4 +101,35 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("minLat") double minLat,
             @Param("maxLng") double maxLng,
             @Param("maxLat") double maxLat);
+
+    @Query(value = """
+            SELECT p.*
+            FROM post p
+            WHERE p.tourism_content_id = :contentId 
+                AND p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (:cursorId IS NULL OR (p.scrap_count, p.created_at, p.id) < (:scrapCount, :createdAt, :cursorId))
+            ORDER BY p.scrap_count DESC, p.created_at DESC, p.id DESC 
+            LIMIT :size                   
+            """, nativeQuery = true)
+    List<Post> findPostsByContentIdPopular(@Param("contentId") String contentId,
+                                           @Param("scrapCount") Integer scrapCount,
+                                           @Param("createdAt") Instant createdAt,
+                                           @Param("cursorId") Long cursorId,
+                                           @Param("size") Integer size);
+
+    @Query(value = """
+            SELECT p.*
+            FROM post p
+            WHERE p.tourism_content_id = :contentId 
+                AND p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (:cursorId IS NULL OR (p.created_at, p.id) < (:createdAt, :cursorId))
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT :size                   
+            """, nativeQuery = true)
+    List<Post> findPostsByContentIdLatest(@Param("contentId") String contentId,
+                                          @Param("createdAt") Instant createdAt,
+                                          @Param("cursorId") Long cursorId,
+                                          @Param("size") Integer size);
 }
