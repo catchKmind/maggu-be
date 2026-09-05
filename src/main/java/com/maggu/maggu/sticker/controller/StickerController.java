@@ -2,6 +2,7 @@ package com.maggu.maggu.sticker.controller;
 
 import com.maggu.maggu.global.auth.CurrentUser;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
+import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
 import com.maggu.maggu.sticker.dto.StickerResponse;
 import com.maggu.maggu.sticker.service.StickerService;
 import com.maggu.maggu.user.entity.AppUser;
@@ -21,7 +22,7 @@ public class StickerController {
 
     private final StickerService stickerService;
 
-    @Operation(summary = "내 스티커 목록 조회", description = "커스텀 스티커 목록을 조회한다.")
+    @Operation(summary = "내 스티커 목록 조회")
     @GetMapping
     public List<StickerResponse> getMyStickers(@CurrentUser AppUser user) {
 
@@ -34,5 +35,12 @@ public class StickerController {
                                            @Valid @RequestBody StickerCreateRequest request) {
 
         return stickerService.createMySticker(user, request);
+    }
+
+    @Operation(summary = "내 스티커 삭제", description = "본인이 생성한 스티커만 삭제할 수 있다.")
+    @DeleteMapping("/{stickerId}")
+    public StickerDeleteResponse deleteMySticker(@CurrentUser AppUser user,
+                                                 @PathVariable Long stickerId) {
+        return stickerService.deleteMySticker(user, stickerId);
     }
 }
