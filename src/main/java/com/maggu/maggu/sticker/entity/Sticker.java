@@ -28,6 +28,17 @@ public class Sticker extends BaseEntity {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
+    @Column(nullable = false)
+    private boolean deleted = false;
+
+    public void markDeleted() {
+        this.deleted = true;
+    }
+
+    public boolean isOwnedBy(AppUser candidate) {
+        return this.user.getId().equals(candidate.getId());
+    }
+
     @Builder
     public Sticker(String name, String imageUrl, AppUser user) {
         this.name = name;

@@ -13,6 +13,8 @@ import java.util.Optional;
 
 public interface PostStickerReactionRepository extends JpaRepository<PostStickerReaction, Long> {
 
+    boolean existsBySticker(Sticker sticker);
+
     Optional<PostStickerReaction> findByPostAndUser(Post post, AppUser user);
 
     @Query("""

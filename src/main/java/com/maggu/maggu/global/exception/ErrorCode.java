@@ -48,7 +48,8 @@ public enum ErrorCode {
     REPORT_DUPLICATE(HttpStatus.CONFLICT, "REPORT-001", "이미 신고한 게시글/댓글입니다."),
 
     // Sticker
-    STICKER_NOT_FOUND(HttpStatus.NOT_FOUND, "STICKER-001", "스티커를 찾을 수 없습니다.");
+    STICKER_NOT_FOUND(HttpStatus.NOT_FOUND, "STICKER-001", "스티커를 찾을 수 없습니다."),
+    STICKER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STICKER-002", "본인이 생성한 스티커만 삭제할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;
