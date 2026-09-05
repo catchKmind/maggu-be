@@ -2,7 +2,7 @@ package com.maggu.maggu.community.repository;
 
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.entity.PostStickerReaction;
-import com.maggu.maggu.community.entity.Sticker;
+import com.maggu.maggu.sticker.entity.Sticker;
 import com.maggu.maggu.user.entity.AppUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -37,11 +37,13 @@ public interface PostStickerReactionRepository extends JpaRepository<PostSticker
 
     interface StickerCount {
         Sticker getSticker();
+
         long getCount();
     }
 
     interface PostReactionCount {
         Long getPostId();
+
         long getCount();
     }
 }

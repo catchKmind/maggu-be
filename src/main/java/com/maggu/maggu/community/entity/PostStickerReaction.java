@@ -2,6 +2,7 @@ package com.maggu.maggu.community.entity;
 
 import com.maggu.maggu.global.entity.BaseEntity;
 import com.maggu.maggu.post.entity.Post;
+import com.maggu.maggu.sticker.entity.Sticker;
 import com.maggu.maggu.user.entity.AppUser;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
