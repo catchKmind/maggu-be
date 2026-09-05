@@ -1,15 +1,15 @@
 package com.maggu.maggu.sticker.controller;
 
 import com.maggu.maggu.global.auth.CurrentUser;
+import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerResponse;
 import com.maggu.maggu.sticker.service.StickerService;
 import com.maggu.maggu.user.entity.AppUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -26,5 +26,13 @@ public class StickerController {
     public List<StickerResponse> getMyStickers(@CurrentUser AppUser user) {
 
         return stickerService.getMyStickers(user);
+    }
+
+    @Operation(summary = "내 스티커 생성")
+    @PostMapping
+    public StickerResponse createMySticker(@CurrentUser AppUser user,
+                                           @Valid @RequestBody StickerCreateRequest request) {
+
+        return stickerService.createMySticker(user, request);
     }
 }
