@@ -2,9 +2,12 @@ package com.maggu.maggu.sticker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.entity.enums.Provider;
+import com.maggu.maggu.global.exception.BusinessException;
+import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.security.CustomUserDetails;
 import com.maggu.maggu.global.security.jwt.JwtAuthenticationFilter;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
+import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
 import com.maggu.maggu.sticker.dto.StickerResponse;
 import com.maggu.maggu.sticker.service.StickerService;
 import com.maggu.maggu.user.entity.AppUser;
@@ -27,8 +30,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -139,6 +146,61 @@ class StickerControllerTest {
             mockMvc.perform(post("/api/v1/stickers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(new StickerCreateRequest("https://img/new.png"))))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("AUTH-002"));
+
+            verifyNoInteractions(stickerService);
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/v1/stickers/{stickerId}")
+    class DeleteMySticker {
+
+        @Test
+        @DisplayName("본인 소유 스티커면 200과 함께 삭제 결과를 반환한다")
+        void deletesSticker() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            given(stickerService.deleteMySticker(any(), eq(10L))).willReturn(
+                    StickerDeleteResponse.builder().stickerId(10L).deleted(true).build());
+
+            mockMvc.perform(delete("/api/v1/stickers/10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.stickerId").value(10))
+                    .andExpect(jsonPath("$.data.deleted").value(true));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 스티커면 404를 반환한다")
+        void returnsNotFoundWhenStickerMissing() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            willThrow(new BusinessException(ErrorCode.STICKER_NOT_FOUND))
+                    .given(stickerService).deleteMySticker(any(), anyLong());
+
+            mockMvc.perform(delete("/api/v1/stickers/10"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("STICKER-001"));
+        }
+
+        @Test
+        @DisplayName("다른 유저 소유 스티커면 403을 반환한다")
+        void returnsForbiddenWhenNotOwner() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            willThrow(new BusinessException(ErrorCode.STICKER_ACCESS_DENIED))
+                    .given(stickerService).deleteMySticker(any(), anyLong());
+
+            mockMvc.perform(delete("/api/v1/stickers/10"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("STICKER-002"));
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 401을 반환하고 서비스는 호출하지 않는다")
+        void returnsUnauthorizedWhenNotAuthenticated() throws Exception {
+            mockMvc.perform(delete("/api/v1/stickers/10"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("AUTH-002"));
 
