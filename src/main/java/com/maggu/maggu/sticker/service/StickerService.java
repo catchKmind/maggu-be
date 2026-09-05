@@ -1,5 +1,6 @@
 package com.maggu.maggu.sticker.service;
 
+import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerResponse;
 import com.maggu.maggu.sticker.entity.Sticker;
 import com.maggu.maggu.sticker.repository.StickerRepository;
@@ -28,4 +29,18 @@ public class StickerService {
                 .toList();
     }
 
+    @Transactional
+    public StickerResponse createMySticker(AppUser user, StickerCreateRequest request) {
+
+        Sticker savedSticker = stickerRepository.save(Sticker.builder()
+                .name(user.getNickname() + "의 커스텀 스티커")
+                .imageUrl(request.imageUrl())
+                .user(user)
+                .build());
+
+        return StickerResponse.builder()
+                .stickerId(savedSticker.getId())
+                .imageUrl(savedSticker.getImageUrl())
+                .build();
+    }
 }
