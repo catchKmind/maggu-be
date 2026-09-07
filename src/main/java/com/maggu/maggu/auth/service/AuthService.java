@@ -95,4 +95,12 @@ public class AuthService {
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
         return TokenResponse.of(accessToken, refreshToken, jwtTokenProvider.getAccessTokenValiditySeconds());
     }
+
+    @Transactional
+    public TokenResponse testLogin(String appleSub, String email, String fullName) {
+        AppUser user = userRepository.findByProviderAndProviderUserId(Provider.APPLE, appleSub)
+                .orElseGet(() -> registerAppleUser(appleSub, email, fullName));
+
+        return issueTokens(user);
+    }
 }
