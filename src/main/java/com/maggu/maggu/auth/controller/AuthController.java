@@ -24,17 +24,14 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "Sign in with Apple", description = "Apple identity token을 검증하고 서비스 JWT를 발급한다.")
-    @PostMapping("/apple")
+    @Operation(summary = "애플로그인하기", description = "Apple identity token을 검증하고 서비스 JWT를 발급한다.")
+    @PostMapping("/login")
     public TokenResponse loginWithApple(@Valid @RequestBody AppleLoginReq request) {
         return authService.loginWithApple(request);
     }
 
-    @Operation(
-            summary = "회원 탈퇴",
-            description = "Apple 로그인 회원이면 refresh token을 revoke한 뒤, 회원 데이터와 연동 정보를 삭제한다."
-    )
-    @DeleteMapping("/withdraw")
+    @Operation(summary = "회원 탈퇴하기", description = "Apple 연동을 해제(Revoke)하고 회원 정보를 삭제한다.")
+    @DeleteMapping("/delete")
     public WithdrawResponse withdraw(@CurrentUser AppUser user) {
         return authService.withdraw(user);
     }
