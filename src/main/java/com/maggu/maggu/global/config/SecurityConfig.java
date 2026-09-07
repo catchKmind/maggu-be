@@ -22,6 +22,8 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     private static final String[] PERMIT_ALL_URLS = {
+            "/api/v1/auth/login",
+            "/api/v1/auth/test-login",
             "/api/v1/auth/**",
             "/swagger-ui/**",
             "/v3/api-docs/**"

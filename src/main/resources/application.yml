@@ -28,7 +28,7 @@ jwt:
   refresh-token-validity-seconds: 1209600
 
 apple:
-  bundle-id: ${APPLE_BUNDLE_ID:com.maggu.app}
+  bundle-id: ${APPLE_BUNDLE_ID:kr.co.maggu}
   team-id: ${APPLE_TEAM_ID:}
   key-id: ${APPLE_KEY_ID:}
   key-path: ${APPLE_KEY_PATH:classpath:AppleSignInsKey.p8}
