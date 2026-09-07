@@ -45,6 +45,13 @@ public class AppUser extends BaseEntity {
     @Column(nullable = false, length = 30)
     private String nickname;
 
+    /**
+     * Apple authorization code를 교환해 얻은 refresh token.
+     * authorization code는 수명이 짧아 저장하지 않고, revoke에 필요한 refresh token만 보관한다.
+     */
+    @Column(name = "apple_refresh_token", length = 2048)
+    private String appleRefreshToken;
+
     @Builder
     public AppUser(Provider provider, String providerUserId, String email, String nickname) {
         this.provider = provider;
@@ -55,5 +62,13 @@ public class AppUser extends BaseEntity {
 
     public void changeNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void updateAppleRefreshToken(String appleRefreshToken) {
+        this.appleRefreshToken = appleRefreshToken;
+    }
+
+    public void clearAppleRefreshToken() {
+        this.appleRefreshToken = null;
     }
 }

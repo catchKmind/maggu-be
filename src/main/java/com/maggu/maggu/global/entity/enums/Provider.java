@@ -1,7 +1,8 @@
 package com.maggu.maggu.global.entity.enums;
 
-// 현재는 Gmail(Google) 로그인만 지원
+// 소셜 로그인 제공자
 public enum Provider {
     GOOGLE,
+    APPLE,
     TEST
 }

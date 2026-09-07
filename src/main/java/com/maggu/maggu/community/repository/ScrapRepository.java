@@ -21,4 +21,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
     // 상세/피드 응답에서 "내가 스크랩했는지" 표시용
     List<Scrap> findByUserAndPostIn(AppUser user, List<Post> posts);
+
+    void deleteByUser(AppUser user);
 }

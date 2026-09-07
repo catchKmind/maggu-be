@@ -22,6 +22,8 @@ public enum ErrorCode {
     AUTH_INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH-002", "유효하지 않은 토큰입니다."),
     AUTH_EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH-003", "만료된 토큰입니다."),
     AUTH_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH-004", "접근 권한이 없습니다."),
+    AUTH_APPLE_TOKEN_EXCHANGE_FAILED(HttpStatus.BAD_GATEWAY, "AUTH-005", "Apple 토큰 교환에 실패했습니다."),
+    AUTH_APPLE_REVOKE_FAILED(HttpStatus.BAD_GATEWAY, "AUTH-006", "Apple 로그인 연동 해제에 실패했습니다."),
 
     // Map
     EXTERNAL_TOURISM_API_ERROR(HttpStatus.BAD_GATEWAY, "MAP-001", "관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."),

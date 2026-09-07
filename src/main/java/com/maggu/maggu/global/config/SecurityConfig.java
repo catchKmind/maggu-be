@@ -36,6 +36,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/auth/withdraw").authenticated()
                         .requestMatchers(PERMIT_ALL_URLS).permitAll()
                         .anyRequest().authenticated()
                 )

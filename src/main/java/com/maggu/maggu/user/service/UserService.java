@@ -23,11 +23,16 @@ public class UserService {
 
     @Transactional
     public AppUser createUser(Provider provider, String providerUserId, String email) {
+        return createUser(provider, providerUserId, email, null);
+    }
+
+    @Transactional
+    public AppUser createUser(Provider provider, String providerUserId, String email, String preferredNickname) {
         AppUser appUser = AppUser.builder()
                 .provider(provider)
                 .providerUserId(providerUserId)
                 .email(email)
-                .nickname(generateUniqueNickname())
+                .nickname(resolveNickname(preferredNickname))
                 .build();
         return userRepository.save(appUser);
     }
@@ -52,6 +57,20 @@ public class UserService {
     @Transactional(readOnly = true)
     public MyAccountResponse getMyAccount(AppUser user) {
         return MyAccountResponse.from(user);
+    }
+
+    private String resolveNickname(String preferredNickname) {
+        if (preferredNickname != null && !preferredNickname.isBlank()) {
+            String candidate = clipNickname(preferredNickname.trim());
+            if (!userRepository.existsByNickname(candidate)) {
+                return candidate;
+            }
+        }
+        return generateUniqueNickname();
+    }
+
+    private String clipNickname(String nickname) {
+        return nickname.length() <= 30 ? nickname : nickname.substring(0, 30);
     }
 
     private String generateUniqueNickname() {

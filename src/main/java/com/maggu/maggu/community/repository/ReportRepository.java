@@ -10,4 +10,6 @@ public interface ReportRepository extends JpaRepository<com.maggu.maggu.communit
     boolean existsByReporterAndPost(AppUser reporter, Post post);
 
     boolean existsByReporterAndComment(AppUser reporter, Comment comment);
+
+    void deleteByReporter(AppUser reporter);
 }

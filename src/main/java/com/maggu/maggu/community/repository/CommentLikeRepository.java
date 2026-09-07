@@ -16,4 +16,6 @@ public interface CommentLikeRepository extends JpaRepository<CommentLike, Long> 
 
     // 특정 유저가 좋아요 누른 댓글 목록(응답에 likedByMe 표시용)
     List<CommentLike> findByUserAndCommentIn(AppUser user, List<Comment> comments);
+
+    void deleteByUser(AppUser user);
 }
