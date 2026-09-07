@@ -58,7 +58,11 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
 
         if (user.getProvider() == Provider.APPLE) {
-            appleAuthService.revoke(user);
+            try {
+                appleAuthService.revoke(user);
+            } catch (Exception e) {
+                log.warn("Apple revoke 통신 실패 (테스트 유저이거나 토큰 없음). 회원 탈퇴는 계속 진행합니다. userId={}", user.getId(), e);
+            }
         }
         userWithdrawalService.deleteAccount(user);
         return WithdrawResponse.ok();
@@ -96,10 +100,13 @@ public class AuthService {
         return TokenResponse.of(accessToken, refreshToken, jwtTokenProvider.getAccessTokenValiditySeconds());
     }
 
-    @Transactional
-    public TokenResponse testLogin(String appleSub, String email, String fullName) {
-        AppUser user = userRepository.findByProviderAndProviderUserId(Provider.APPLE, appleSub)
-                .orElseGet(() -> registerAppleUser(appleSub, email, fullName));
+    public TokenResponse testLogin() {
+        String testAppleSub = "test_apple_sub_default";
+        String testEmail = "test@maggu.com";
+        String testName = "테스트유저";
+
+        AppUser user = userRepository.findByProviderAndProviderUserId(Provider.APPLE, testAppleSub)
+                .orElseGet(() -> registerAppleUser(testAppleSub, testEmail, testName));
 
         return issueTokens(user);
     }
