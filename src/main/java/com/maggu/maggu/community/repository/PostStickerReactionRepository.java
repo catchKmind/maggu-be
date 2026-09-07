@@ -37,6 +37,8 @@ public interface PostStickerReactionRepository extends JpaRepository<PostSticker
     // 피드 목록 중 내가 반응한 내역 한 번에 조회
     List<PostStickerReaction> findByUserAndPostIn(AppUser user, List<Post> posts);
 
+    void deleteByUser(AppUser user);
+
     interface StickerCount {
         Sticker getSticker();
 

@@ -36,6 +36,9 @@ public class Sticker extends BaseEntity {
     }
 
     public boolean isOwnedBy(AppUser candidate) {
+        if (this.user == null || candidate == null) {
+            return false;
+        }
         return this.user.getId().equals(candidate.getId());
     }
 

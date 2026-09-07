@@ -83,6 +83,10 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.deleted = true WHERE p.id = :postId")
     void markDeleted(@Param("postId") Long postId);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Post p SET p.user = null WHERE p.user.id = :userId")
+    void detachUser(@Param("userId") Long userId);
+
     @Query(value = """
             SELECT p.id AS postId, p.slug AS slug,
                    ST_X(p.location) AS lng, ST_Y(p.location) AS lat,

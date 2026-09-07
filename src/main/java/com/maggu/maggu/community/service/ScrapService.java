@@ -160,7 +160,7 @@ public class ScrapService {
         return PostSummaryResponse.builder()
                 .postId(post.getId())
                 .slug(post.getSlug())
-                .writerNickname(post.getUser().getNickname())
+                .writerNickname(post.getUser() != null ? post.getUser().getNickname() : "탈퇴한 회원")
                 .content(post.getContent())
                 .placeName(post.getPlaceName())
                 .category(post.getCategory())

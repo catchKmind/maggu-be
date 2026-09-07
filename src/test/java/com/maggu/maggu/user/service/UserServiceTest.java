@@ -61,6 +61,32 @@ class UserServiceTest {
         }
 
         @Test
+        @DisplayName("preferredNickname이 있고 중복이 아니면 해당 닉네임으로 생성한다")
+        void createUserUsesPreferredNicknameWhenAvailable() {
+            given(userRepository.existsByNickname("윤시진")).willReturn(false);
+            given(userRepository.save(any(AppUser.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            AppUser result = userService.createUser(Provider.APPLE, "apple-uid", "apple@test.com", "윤시진");
+
+            assertThat(result.getProvider()).isEqualTo(Provider.APPLE);
+            assertThat(result.getNickname()).isEqualTo("윤시진");
+            verifyNoInteractions(nicknameGenerator);
+        }
+
+        @Test
+        @DisplayName("preferredNickname이 이미 사용 중이면 자동 생성 닉네임으로 등록한다")
+        void createUserFallsBackToGeneratedNicknameWhenPreferredIsTaken() {
+            given(userRepository.existsByNickname("윤시진")).willReturn(true);
+            given(nicknameGenerator.generate()).willReturn("행복한사자123");
+            given(userRepository.existsByNickname("행복한사자123")).willReturn(false);
+            given(userRepository.save(any(AppUser.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            AppUser result = userService.createUser(Provider.APPLE, "apple-uid", "apple@test.com", "윤시진");
+
+            assertThat(result.getNickname()).isEqualTo("행복한사자123");
+        }
+
+        @Test
         @DisplayName("생성된 닉네임이 중복되면 재시도해서 중복되지 않는 닉네임으로 생성한다")
         void createUserRetriesOnNicknameCollision() {
             given(nicknameGenerator.generate()).willReturn("중복사자1", "새로운사자2");

@@ -14,4 +14,6 @@ public interface FolderRepository extends JpaRepository<Folder, Long> {
     Optional<Folder> findByUserAndIsDefaultTrue(AppUser user);
 
     boolean existsByUserAndName(AppUser user, String name);
+
+    void deleteByUser(AppUser user);
 }
