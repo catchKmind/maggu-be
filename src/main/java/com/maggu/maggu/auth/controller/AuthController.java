@@ -33,14 +33,10 @@ public class AuthController {
         return authService.withdraw(user);
     }
 
-    @Operation(summary = "[테스트용] 임시 토큰 발급 로그인", description = "Apple 검증 없이 지정한 sub(애플고유ID)로 유저를 생성/조회하고 서비스 JWT를 발급합니다.")
+    @Operation(summary = "[테스트용] 임시 토큰 발급 로그인")
     @PostMapping("/test-login")
-    public TokenResponse testLogin(
-            @RequestParam(defaultValue = "test_apple_sub_1234") String appleSub,
-            @RequestParam(defaultValue = "test@maggu.com") String email,
-            @RequestParam(defaultValue = "테스트유저") String fullName
-    ) {
-        return authService.testLogin(appleSub, email, fullName);
+    public TokenResponse testLogin() {
+        return authService.testLogin();
     }
 
 }
