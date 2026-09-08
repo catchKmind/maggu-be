@@ -13,6 +13,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -89,6 +91,53 @@ class TourApiClientTest {
             assertThat(detail.closedDays()).isNull();
             mockServer.verify();
         }
+    }
+
+    @Nested
+    @DisplayName("searchFestival")
+    class SearchFestival {
+
+        @Test
+        @DisplayName("정상 응답이면 축제 목록을 파싱해 반환한다")
+        void returnsParsedFestivalSpots() {
+            expectSearchFestival(searchFestivalJson(CONTENT_ID, "20260918", "20260920"));
+
+            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB);
+
+            assertThat(result).hasSize(1);
+            FestivalSpot spot = result.get(0);
+            assertThat(spot.contentId()).isEqualTo(CONTENT_ID);
+            assertThat(spot.contentType()).isEqualTo(ContentType.FESTIVAL);
+            assertThat(spot.eventStartDate()).isEqualTo(LocalDate.of(2026, 9, 18));
+            assertThat(spot.eventEndDate()).isEqualTo(LocalDate.of(2026, 9, 20));
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("날짜 형식이 잘못된 항목은 건너뛰고 나머지는 정상 반환된다(전체 실패시키지 않음)")
+        void skipsItemWithMalformedDateInsteadOfFailingWholeBatch() {
+            expectSearchFestival(searchFestivalJson(CONTENT_ID, "invalid-date", "20260920"));
+
+            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB);
+
+            assertThat(result).isEmpty();
+            mockServer.verify();
+        }
+    }
+
+    private void expectSearchFestival(String responseJson) {
+        mockServer.expect(requestTo(containsString("/searchFestival2")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+    }
+
+    private String searchFestivalJson(String contentId, String eventStartDate, String eventEndDate) {
+        return """
+                {"response":{"header":{"resultCode":"0000","resultMsg":"OK"},"body":{"items":{"item":{
+                  "contentid":"%s","contenttypeid":"15","title":"테스트축제",
+                  "eventstartdate":"%s","eventenddate":"%s","mapx":"127.05","mapy":"37.55"
+                }}}}}
+                """.formatted(contentId, eventStartDate, eventEndDate);
     }
 
     private void expectDetailCommon(String responseJson) {
