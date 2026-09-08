@@ -14,6 +14,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -28,6 +32,7 @@ public class TourApiClient {
     private static final String AREA_BASED_LIST_PATH = "/areaBasedList2";
     private static final String DETAIL_IMAGE_PATH = "/detailImage2";
     private static final String DETAIL_INTRO_PATH = "/detailIntro2";
+    private static final String SEARCH_FESTIVAL_PATH = "/searchFestival2";
 
     private static final String MOBILE_OS = "ETC";
     private static final String MOBILE_APP = "maggu";
@@ -36,10 +41,21 @@ public class TourApiClient {
     private static final String SUCCESS_RESULT_CODE = "0000";
     private static final String AREA_BATCH_NUM_OF_ROWS = "4000";
     private static final String DETAIL_IMAGE_NUM_OF_ROWS = "3";
+    private static final String FESTIVAL_NUM_OF_ROWS = "1000";
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final RestClient tourApiRestClient;
     private final TourismApiProperties properties;
     private final ObjectMapper objectMapper;
+
+    public List<FestivalSpot> searchFestival(TourServiceArea area) {
+        String today = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DATE_FORMATTER);
+
+        String rawBody = requestSearchFestival(area, today);
+
+        return parseFestivalSpots(rawBody);
+    }
 
     public MapSpotDetail findSpotDetail(String contentId) {
         CompletableFuture<String> detailCommonFuture = CompletableFuture.supplyAsync(() -> requestDetailCommonRawBody(contentId));
@@ -269,6 +285,33 @@ public class TourApiClient {
         }
     }
 
+    // 행사 정보 조회 API 호출
+    private String requestSearchFestival(TourServiceArea area, String today) {
+        try {
+            return tourApiRestClient.get()
+                    .uri(uriBuilder -> {
+                        uriBuilder.path(SEARCH_FESTIVAL_PATH)
+                                .queryParam("eventStartDate", today)
+                                .queryParam("eventEndDate", today)
+                                .queryParam("lDongRegnCd", area.getLDongRegnCd())
+                                .queryParam("numOfRows", FESTIVAL_NUM_OF_ROWS)
+                                .queryParam("MobileOS", MOBILE_OS)
+                                .queryParam("MobileApp", MOBILE_APP)
+                                .queryParam("serviceKey", properties.serviceKey())
+                                .queryParam("_type", RESPONSE_TYPE);
+                        return uriBuilder.build();
+                    }).retrieve()
+                    .body(String.class);
+        } catch (RestClientResponseException e) {
+            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
+        } catch (RestClientException e) {
+            log.warn("TourAPI 호출 실패: ", e);
+            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
+        }
+    }
+
     private String extractContentTypeId(String detailCommonRawBody) {
         TourApiRawResponse<DetailCommonItem> response = validateRawResponse(DetailCommonItem.class, detailCommonRawBody);
 
@@ -276,6 +319,15 @@ public class TourApiClient {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND))
                 .contentTypeId();
+    }
+
+    private List<FestivalSpot> parseFestivalSpots(String rawBody) {
+        TourApiRawResponse<SearchFestivalItem> response = validateRawResponse(SearchFestivalItem.class, rawBody);
+
+        return response.response().body().items().stream()
+                .map(this::toFestivalSpotOrNull)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private Optional<ContentType> parseContentType(String rawBody) {
@@ -396,6 +448,23 @@ public class TourApiClient {
             );
         } catch (IllegalArgumentException e) {
             log.warn("area 배치 항목 파싱 실패, 건너뜀: contentId={}", item.contentId(), e);
+            return null;
+        }
+    }
+
+    private FestivalSpot toFestivalSpotOrNull(SearchFestivalItem item) {
+        try {
+            return FestivalSpot.builder()
+                    .contentId(item.contentId())
+                    .contentType(ContentType.fromId(Integer.parseInt(item.contentTypeId())))
+                    .title(item.title())
+                    .eventStartDate(LocalDate.parse(item.eventStartDate(), DATE_FORMATTER))
+                    .eventEndDate(LocalDate.parse(item.eventEndDate(), DATE_FORMATTER))
+                    .mapX(Double.parseDouble(item.mapX()))
+                    .mapY(Double.parseDouble(item.mapY()))
+                    .build();
+        } catch (IllegalArgumentException | DateTimeParseException e) {
+            log.warn("festival 배치 항목 파싱 실패, 건너뜀: contentId={}", item.contentId(), e);
             return null;
         }
     }
