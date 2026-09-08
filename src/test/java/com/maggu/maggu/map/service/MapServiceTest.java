@@ -2,6 +2,7 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
@@ -48,6 +49,9 @@ class MapServiceTest {
     @Mock
     private TourSpotCache spotCache;
 
+    @Mock
+    private OngoingFestivalCache ongoingFestivalCache;
+
     @InjectMocks
     private MapService mapService;
 
@@ -73,6 +77,19 @@ class MapServiceTest {
             assertThat(feature.properties().contentId()).isEqualTo("126234");
             assertThat(feature.properties().contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
             assertThat(feature.properties().title()).isEqualTo("남산타워");
+            assertThat(feature.properties().isOngoingEvent()).isFalse();
+        }
+
+        @Test
+        @DisplayName("오늘 진행중인 축제로 캐시에 등록된 스팟은 isOngoingEvent가 true다")
+        void marksSpotAsOngoingEventWhenCachedAsOngoing() {
+            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "축제장", 127.05, 37.55);
+            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+            given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
+
+            MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
+
+            assertThat(response.features().get(0).properties().isOngoingEvent()).isTrue();
         }
 
         @Test
