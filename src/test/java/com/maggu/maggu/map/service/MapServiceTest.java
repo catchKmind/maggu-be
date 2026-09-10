@@ -2,10 +2,12 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
 import com.maggu.maggu.map.client.TourSpot;
+import com.maggu.maggu.map.dto.AutocompleteCandidateResponse;
 import com.maggu.maggu.map.dto.MapPostFeature;
 import com.maggu.maggu.map.dto.MapPostsResponse;
 import com.maggu.maggu.map.dto.MapSpotDetail;
@@ -48,6 +50,9 @@ class MapServiceTest {
     @Mock
     private TourSpotCache spotCache;
 
+    @Mock
+    private OngoingFestivalCache ongoingFestivalCache;
+
     @InjectMocks
     private MapService mapService;
 
@@ -73,6 +78,19 @@ class MapServiceTest {
             assertThat(feature.properties().contentId()).isEqualTo("126234");
             assertThat(feature.properties().contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
             assertThat(feature.properties().title()).isEqualTo("남산타워");
+            assertThat(feature.properties().isOngoingEvent()).isFalse();
+        }
+
+        @Test
+        @DisplayName("오늘 진행중인 축제로 캐시에 등록된 스팟은 isOngoingEvent가 true다")
+        void marksSpotAsOngoingEventWhenCachedAsOngoing() {
+            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "축제장", 127.05, 37.55);
+            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+            given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
+
+            MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
+
+            assertThat(response.features().get(0).properties().isOngoingEvent()).isTrue();
         }
 
         @Test
@@ -375,6 +393,48 @@ class MapServiceTest {
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.MAP_CONTENT_NOT_FOUND));
 
             verifyNoInteractions(spotCache);
+        }
+    }
+
+    @Nested
+    @DisplayName("getAutocompleteCandidates")
+    class GetAutocompleteCandidates {
+
+        private static final int AUTOCOMPLETE_MAX_RESULTS = 6;
+
+        @Test
+        @DisplayName("캐시에서 매칭된 스팟을 자동완성 후보 응답으로 변환해 반환한다")
+        void returnsCandidatesConvertedFromMatchedSpots() {
+            TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "해운대해수욕장", 129.16, 35.16);
+            given(spotCache.findByKeyword("해운대", AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of(spot));
+
+            List<AutocompleteCandidateResponse> result = mapService.getAutocompleteCandidates("해운대");
+
+            assertThat(result).hasSize(1);
+            AutocompleteCandidateResponse candidate = result.get(0);
+            assertThat(candidate.contentId()).isEqualTo("126234");
+            assertThat(candidate.contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
+            assertThat(candidate.title()).isEqualTo("해운대해수욕장");
+        }
+
+        @Test
+        @DisplayName("캐시에 매칭되는 스팟이 없으면 빈 리스트를 반환한다")
+        void returnsEmptyListWhenNoSpotsMatch() {
+            given(spotCache.findByKeyword("존재하지않는키워드", AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of());
+
+            List<AutocompleteCandidateResponse> result = mapService.getAutocompleteCandidates("존재하지않는키워드");
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("자동완성 최대 개수(6개)로 캐시를 조회한다")
+        void queriesCacheWithAutocompleteMaxResults() {
+            given(spotCache.findByKeyword("해운대", AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of());
+
+            mapService.getAutocompleteCandidates("해운대");
+
+            verify(spotCache).findByKeyword("해운대", AUTOCOMPLETE_MAX_RESULTS);
         }
     }
 }

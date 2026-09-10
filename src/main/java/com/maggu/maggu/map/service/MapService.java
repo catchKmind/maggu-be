@@ -2,6 +2,7 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
@@ -22,9 +23,25 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class MapService {
 
+    private static final int AUTOCOMPLETE_MAX_RESULTS = 6;
+
     private final PostRepository postRepository;
     private final TourApiClient tourApiClient;
     private final TourSpotCache tourSpotCache;
+    private final OngoingFestivalCache ongoingFestivalCache;
+
+    public List<AutocompleteCandidateResponse> getAutocompleteCandidates(String keyword) {
+        List<TourSpot> spots = tourSpotCache.findByKeyword(keyword, AUTOCOMPLETE_MAX_RESULTS);
+
+        return spots.stream()
+                .map(spot ->
+                        AutocompleteCandidateResponse.builder()
+                                .contentId(spot.contentId())
+                                .contentType(spot.contentType())
+                                .title(spot.title())
+                                .build())
+                .toList();
+    }
 
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
@@ -107,7 +124,7 @@ public class MapService {
     private MapSpotFeature toFeature(TourSpot spot) {
 
         MapGeometry geometry = MapGeometry.of(spot.mapX(), spot.mapY());
-        TourSpotProperties properties = TourSpotProperties.from(spot);
+        TourSpotProperties properties = TourSpotProperties.from(spot, ongoingFestivalCache.isOngoing(spot.contentId()));
 
         return MapSpotFeature.of(geometry, properties);
     }

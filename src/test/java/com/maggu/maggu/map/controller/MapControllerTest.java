@@ -3,6 +3,7 @@ package com.maggu.maggu.map.controller;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.map.client.ContentType;
+import com.maggu.maggu.map.dto.AutocompleteCandidateResponse;
 import com.maggu.maggu.map.dto.MapGeometry;
 import com.maggu.maggu.map.dto.MapPostFeature;
 import com.maggu.maggu.map.dto.MapPostProperties;
@@ -138,7 +139,7 @@ class MapControllerTest {
         void returnsSpotsWithinBbox() throws Exception {
             MapSpotFeature feature = MapSpotFeature.of(
                     MapGeometry.of(127.05, 37.55),
-                    new TourSpotProperties("126234", ContentType.TOURIST_ATTRACTION, "남산타워"));
+                    new TourSpotProperties("126234", ContentType.TOURIST_ATTRACTION, "남산타워", true));
             given(mapService.getMapSpots(37.4, 126.8, 37.7, 127.2))
                     .willReturn(MapSpotsResponse.of(List.of(feature)));
 
@@ -150,7 +151,8 @@ class MapControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.type").value("FeatureCollection"))
-                    .andExpect(jsonPath("$.data.features[0].properties.contentId").value("126234"));
+                    .andExpect(jsonPath("$.data.features[0].properties.contentId").value("126234"))
+                    .andExpect(jsonPath("$.data.features[0].properties.isOngoingEvent").value(true));
         }
 
         @Test
@@ -194,6 +196,38 @@ class MapControllerTest {
 
             mockMvc.perform(get("/api/v1/map/spots/{contentId}", "999"))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/map/search/autocomplete")
+    class GetAutocompleteCandidates {
+
+        @Test
+        @DisplayName("정상 keyword로 요청하면 200과 함께 자동완성 후보 목록을 반환한다")
+        void returnsAutocompleteCandidates() throws Exception {
+            AutocompleteCandidateResponse candidate = AutocompleteCandidateResponse.builder()
+                    .contentId("126234")
+                    .contentType(ContentType.TOURIST_ATTRACTION)
+                    .title("해운대해수욕장")
+                    .build();
+            given(mapService.getAutocompleteCandidates("해운대")).willReturn(List.of(candidate));
+
+            mockMvc.perform(get("/api/v1/map/search/autocomplete")
+                            .param("keyword", "해운대"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data[0].contentId").value("126234"))
+                    .andExpect(jsonPath("$.data[0].contentType").value(ContentType.TOURIST_ATTRACTION.getId()))
+                    .andExpect(jsonPath("$.data[0].title").value("해운대해수욕장"));
+        }
+
+        @Test
+        @DisplayName("필수 파라미터(keyword)가 없으면 서비스는 호출하지 않는다")
+        void doesNotCallServiceWhenKeywordMissing() throws Exception {
+            mockMvc.perform(get("/api/v1/map/search/autocomplete"));
+
+            verifyNoInteractions(mapService);
         }
     }
 }
