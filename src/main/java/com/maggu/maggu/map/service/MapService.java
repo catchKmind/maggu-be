@@ -23,10 +23,25 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class MapService {
 
+    private static final int AUTOCOMPLETE_MAX_RESULTS = 6;
+
     private final PostRepository postRepository;
     private final TourApiClient tourApiClient;
     private final TourSpotCache tourSpotCache;
     private final OngoingFestivalCache ongoingFestivalCache;
+
+    public List<AutocompleteCandidateResponse> getAutocompleteCandidates(String keyword) {
+        List<TourSpot> spots = tourSpotCache.findByKeyword(keyword, AUTOCOMPLETE_MAX_RESULTS);
+
+        return spots.stream()
+                .map(spot ->
+                        AutocompleteCandidateResponse.builder()
+                                .contentId(spot.contentId())
+                                .contentType(spot.contentType())
+                                .title(spot.title())
+                                .build())
+                .toList();
+    }
 
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
