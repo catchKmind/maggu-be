@@ -21,6 +21,7 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
 @Slf4j
 @Component
@@ -149,159 +150,117 @@ public class TourApiClient {
 
     // 지역기반 관광정보 조회 API 호출
     private String requestAreaBasedListRawBody(TourServiceArea area) {
-        try {
-            return tourApiRestClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path(AREA_BASED_LIST_PATH)
-                                .queryParam("lDongRegnCd", area.getLDongRegnCd())
-                                .queryParam("numOfRows", AREA_BATCH_NUM_OF_ROWS)
-                                .queryParam("MobileOS", MOBILE_OS)
-                                .queryParam("MobileApp", MOBILE_APP)
-                                .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE);
+        return executeRequest(() -> tourApiRestClient.get()
+                .uri(uriBuilder -> {
+                    uriBuilder.path(AREA_BASED_LIST_PATH)
+                            .queryParam("lDongRegnCd", area.getLDongRegnCd())
+                            .queryParam("numOfRows", AREA_BATCH_NUM_OF_ROWS)
+                            .queryParam("MobileOS", MOBILE_OS)
+                            .queryParam("MobileApp", MOBILE_APP)
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("_type", RESPONSE_TYPE);
 
-                        return uriBuilder.build();
-                    })
-                    .retrieve()
-                    .body(String.class);
-        } catch (RestClientResponseException e) {
-            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
-        } catch (RestClientException e) {
-            log.warn("TourAPI 호출 실패: ", e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
-        }
+                    return uriBuilder.build();
+                })
+                .retrieve()
+                .body(String.class));
     }
 
     // 공통 정보 조회 API 호출
     private String requestDetailCommonRawBody(String contentId) {
-        try {
-            return tourApiRestClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path(DETAIL_COMMON_PATH)
-                                .queryParam("contentId", contentId)
-                                .queryParam("MobileOS", MOBILE_OS)
-                                .queryParam("MobileApp", MOBILE_APP)
-                                .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE);
+        return executeRequest(() -> tourApiRestClient.get()
+                .uri(uriBuilder -> {
+                    uriBuilder.path(DETAIL_COMMON_PATH)
+                            .queryParam("contentId", contentId)
+                            .queryParam("MobileOS", MOBILE_OS)
+                            .queryParam("MobileApp", MOBILE_APP)
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("_type", RESPONSE_TYPE);
 
-                        return uriBuilder.build();
-                    })
-                    .retrieve()
-                    .body(String.class);
-        } catch (RestClientResponseException e) {
-            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
-        } catch (RestClientException e) {
-            log.warn("TourAPI 호출 실패: ", e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
-        }
+                    return uriBuilder.build();
+                })
+                .retrieve()
+                .body(String.class));
     }
 
     // 위치기반 관광정보 조회 API 호출
     private String requestLocationBasedListRawBody(double mapX, double mapY, int radiusMeters, Integer contentTypeId, int numOfRows) {
+        return executeRequest(() -> tourApiRestClient.get()
+                .uri(uriBuilder -> {
+                    uriBuilder.path(LOCATION_BASED_LIST_PATH)
+                            .queryParam("arrange", ARRANGE_BY_DISTANCE)
+                            .queryParam("mapX", mapX)
+                            .queryParam("mapY", mapY)
+                            .queryParam("radius", radiusMeters)
+                            .queryParam("pageNo", 1)
+                            .queryParam("numOfRows", numOfRows)
+                            .queryParam("MobileOS", MOBILE_OS)
+                            .queryParam("MobileApp", MOBILE_APP)
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("_type", RESPONSE_TYPE);
+                    if (contentTypeId != null) {
+                        uriBuilder.queryParam("contentTypeId", contentTypeId);
+                    }
 
-        try {
-            return tourApiRestClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path(LOCATION_BASED_LIST_PATH)
-                                .queryParam("arrange", ARRANGE_BY_DISTANCE)
-                                .queryParam("mapX", mapX)
-                                .queryParam("mapY", mapY)
-                                .queryParam("radius", radiusMeters)
-                                .queryParam("pageNo", 1)
-                                .queryParam("numOfRows", numOfRows)
-                                .queryParam("MobileOS", MOBILE_OS)
-                                .queryParam("MobileApp", MOBILE_APP)
-                                .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE);
-                        if (contentTypeId != null) {
-                            uriBuilder.queryParam("contentTypeId", contentTypeId);
-                        }
-
-                        return uriBuilder.build();
-                    })
-                    .retrieve()
-                    .body(String.class);
-        } catch (RestClientResponseException e) {
-            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
-        } catch (RestClientException e) {
-            log.warn("TourAPI 호출 실패: ", e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
-        }
+                    return uriBuilder.build();
+                })
+                .retrieve()
+                .body(String.class));
     }
 
     // 이미지 정보 조회 API 호출
     private String requestDetailImageRawBody(String contentId) {
-        try {
-            return tourApiRestClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path(DETAIL_IMAGE_PATH)
-                                .queryParam("contentId", contentId)
-                                .queryParam("numOfRows", DETAIL_IMAGE_NUM_OF_ROWS)
-                                .queryParam("MobileOS", MOBILE_OS)
-                                .queryParam("MobileApp", MOBILE_APP)
-                                .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE);
-                        return uriBuilder.build();
-                    }).retrieve()
-                    .body(String.class);
-        } catch (RestClientResponseException e) {
-            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
-        } catch (RestClientException e) {
-            log.warn("TourAPI 호출 실패: ", e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
-        }
+        return executeRequest(() -> tourApiRestClient.get()
+                .uri(uriBuilder -> {
+                    uriBuilder.path(DETAIL_IMAGE_PATH)
+                            .queryParam("contentId", contentId)
+                            .queryParam("numOfRows", DETAIL_IMAGE_NUM_OF_ROWS)
+                            .queryParam("MobileOS", MOBILE_OS)
+                            .queryParam("MobileApp", MOBILE_APP)
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("_type", RESPONSE_TYPE);
+                    return uriBuilder.build();
+                }).retrieve()
+                .body(String.class));
     }
 
     // 영업 시간 조회 API 호출
     private String requestDetailIntroRawBody(String contentId, String contentTypeId) {
-        try {
-            return tourApiRestClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path(DETAIL_INTRO_PATH)
-                                .queryParam("contentId", contentId)
-                                .queryParam("contentTypeId", contentTypeId)
-                                .queryParam("MobileOS", MOBILE_OS)
-                                .queryParam("MobileApp", MOBILE_APP)
-                                .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE);
-                        return uriBuilder.build();
-                    }).retrieve()
-                    .body(String.class);
-        } catch (RestClientResponseException e) {
-            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
-        } catch (RestClientException e) {
-            log.warn("TourAPI 호출 실패: ", e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
-        }
+        return executeRequest(() -> tourApiRestClient.get()
+                .uri(uriBuilder -> {
+                    uriBuilder.path(DETAIL_INTRO_PATH)
+                            .queryParam("contentId", contentId)
+                            .queryParam("contentTypeId", contentTypeId)
+                            .queryParam("MobileOS", MOBILE_OS)
+                            .queryParam("MobileApp", MOBILE_APP)
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("_type", RESPONSE_TYPE);
+                    return uriBuilder.build();
+                }).retrieve()
+                .body(String.class));
     }
 
     // 행사 정보 조회 API 호출
     private String requestSearchFestival(TourServiceArea area, String today) {
+        return executeRequest(() -> tourApiRestClient.get()
+                .uri(uriBuilder -> {
+                    uriBuilder.path(SEARCH_FESTIVAL_PATH)
+                            .queryParam("eventStartDate", today)
+                            .queryParam("eventEndDate", today)
+                            .queryParam("lDongRegnCd", area.getLDongRegnCd())
+                            .queryParam("numOfRows", FESTIVAL_NUM_OF_ROWS)
+                            .queryParam("MobileOS", MOBILE_OS)
+                            .queryParam("MobileApp", MOBILE_APP)
+                            .queryParam("serviceKey", properties.serviceKey())
+                            .queryParam("_type", RESPONSE_TYPE);
+                    return uriBuilder.build();
+                }).retrieve()
+                .body(String.class));
+    }
+
+    private String executeRequest(Supplier<String> requestSupplier) {
         try {
-            return tourApiRestClient.get()
-                    .uri(uriBuilder -> {
-                        uriBuilder.path(SEARCH_FESTIVAL_PATH)
-                                .queryParam("eventStartDate", today)
-                                .queryParam("eventEndDate", today)
-                                .queryParam("lDongRegnCd", area.getLDongRegnCd())
-                                .queryParam("numOfRows", FESTIVAL_NUM_OF_ROWS)
-                                .queryParam("MobileOS", MOBILE_OS)
-                                .queryParam("MobileApp", MOBILE_APP)
-                                .queryParam("serviceKey", properties.serviceKey())
-                                .queryParam("_type", RESPONSE_TYPE);
-                        return uriBuilder.build();
-                    }).retrieve()
-                    .body(String.class);
+            return requestSupplier.get();
         } catch (RestClientResponseException e) {
             log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
                     e.getStatusCode(), e.getResponseBodyAsString(), e);
