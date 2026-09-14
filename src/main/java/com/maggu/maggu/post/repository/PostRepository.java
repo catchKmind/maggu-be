@@ -136,4 +136,34 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                                           @Param("createdAt") Instant createdAt,
                                           @Param("cursorId") Long cursorId,
                                           @Param("size") Integer size);
+
+    // TODO: 데이터가 많아질 경우 QueryDSL/Full-Text Search Index/Elasticsearch 도입 고려, Like 비교는 Full Scan이라 성능 떨어짐
+    @Query(value = """
+            SELECT p.* FROM post p
+            WHERE p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.place_name LIKE CONCAT('%', :keyword, '%'))
+                AND (:cursorId IS NULL OR (p.scrap_count, p.created_at, p.id) < (:scrapCount, :createdAt, :cursorId))
+            ORDER BY p.scrap_count DESC, p.created_at DESC, p.id DESC
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findByKeywordPopular(@Param("keyword") String keyword,
+                                    @Param("scrapCount") Integer scrapCount,
+                                    @Param("createdAt") Instant createdAt,
+                                    @Param("cursorId") Long cursorId,
+                                    @Param("size") Integer size);
+
+    @Query(value = """
+            SELECT p.* FROM post p
+            WHERE p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.place_name LIKE CONCAT('%', :keyword, '%'))
+                AND (:cursorId IS NULL OR (p.created_at, p.id) < (:createdAt, :cursorId))
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findByKeywordLatest(@Param("keyword") String keyword,
+                                   @Param("createdAt") Instant createdAt,
+                                   @Param("cursorId") Long cursorId,
+                                   @Param("size") Integer size);
 }
