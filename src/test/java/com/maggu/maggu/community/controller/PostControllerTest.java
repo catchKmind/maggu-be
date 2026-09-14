@@ -1,7 +1,7 @@
 package com.maggu.maggu.community.controller;
 
-import com.maggu.maggu.community.dto.enums.FeedSort;
-import com.maggu.maggu.community.dto.response.PostFeedItemResponse;
+import com.maggu.maggu.post.dto.enums.FeedSort;
+import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
 import com.maggu.maggu.community.service.PostCommandService;
 import com.maggu.maggu.community.service.PostFeedService;
 import com.maggu.maggu.community.service.PostQueryService;

@@ -1,7 +1,7 @@
 package com.maggu.maggu.community.service;
 
-import com.maggu.maggu.community.dto.response.PostFeedItemResponse;
-import com.maggu.maggu.community.dto.enums.FeedSort;
+import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
+import com.maggu.maggu.post.dto.enums.FeedSort;
 import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.global.exception.BusinessException;
@@ -9,6 +9,7 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
+import com.maggu.maggu.post.service.FeedCursor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

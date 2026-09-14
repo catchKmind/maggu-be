@@ -1,4 +1,4 @@
-package com.maggu.maggu.community.dto.enums;
+package com.maggu.maggu.post.dto.enums;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
