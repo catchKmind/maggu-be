@@ -447,7 +447,9 @@ public class TourApiClient {
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
                 tel,
                 item.title(),
-                item.addr1() + " " + item.addr2(),
+                item.addr2() == null || item.addr2().isBlank()
+                        ? item.addr1()
+                        : item.addr1() + " " + item.addr2(),
                 images,
                 businessHours,
                 closedDays,

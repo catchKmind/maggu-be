@@ -38,4 +38,14 @@ public class TourSpotCache {
                         && spot.mapY() <= maxLat && minLat <= spot.mapY())
                 .toList();
     }
+
+    public List<TourSpot> findByKeyword(String keyword, int limit) {
+        return cache.asMap()
+                .values()
+                .stream()
+                .filter(spot ->
+                        spot.title().contains(keyword))
+                .limit(limit)
+                .toList();
+    }
 }

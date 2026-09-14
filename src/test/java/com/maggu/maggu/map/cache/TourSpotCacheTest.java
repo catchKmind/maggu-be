@@ -89,7 +89,57 @@ class TourSpotCacheTest {
         }
     }
 
+    @Nested
+    @DisplayName("findByKeyword")
+    class FindByKeyword {
+
+        @Test
+        @DisplayName("제목에 키워드가 포함된 스팟을 반환한다")
+        void returnsSpotsMatchingTitle() {
+            TourSpot matched = spot("1", "해운대해수욕장", 129.16, 35.16);
+            TourSpot notMatched = spot("2", "남산타워", 127.0, 37.5);
+            tourSpotCache.putAll(List.of(matched, notMatched));
+
+            List<TourSpot> result = tourSpotCache.findByKeyword("해운대", 10);
+
+            assertThat(result).containsExactly(matched);
+        }
+
+        @Test
+        @DisplayName("제목에 키워드가 없으면 결과에서 제외한다")
+        void excludesSpotsNotMatchingTitle() {
+            TourSpot notMatched = spot("1", "남산타워", 127.0, 37.5);
+            tourSpotCache.putAll(List.of(notMatched));
+
+            List<TourSpot> result = tourSpotCache.findByKeyword("해운대", 10);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("매칭되지 않는 스팟이 섞여 있어도 매칭된 것만 limit 개수만큼 반환한다")
+        void limitsResultCount() {
+            // 매칭 안 되는 스팟을 매칭되는 스팟보다 먼저/더 많이 섞어 넣어서,
+            // filter보다 limit을 먼저 적용하는 회귀(매칭 스팟이 잘려나가는 버그)가 생기면 이 테스트가 깨진다.
+            TourSpot notMatched1 = spot("1", "남산타워", 127.0, 37.5);
+            TourSpot matched1 = spot("2", "해운대해수욕장", 129.16, 35.16);
+            TourSpot notMatched2 = spot("3", "경복궁", 126.9, 37.5);
+            TourSpot matched2 = spot("4", "해운대시장", 129.17, 35.17);
+            TourSpot matched3 = spot("5", "해운대해변열차", 129.18, 35.18);
+            tourSpotCache.putAll(List.of(notMatched1, matched1, notMatched2, matched2, matched3));
+
+            List<TourSpot> result = tourSpotCache.findByKeyword("해운대", 2);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).allMatch(spot -> spot.title().contains("해운대"));
+        }
+    }
+
     private TourSpot spot(String contentId, double mapX, double mapY) {
-        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, "테스트 스팟", mapX, mapY);
+        return spot(contentId, "테스트 스팟", mapX, mapY);
+    }
+
+    private TourSpot spot(String contentId, String title, double mapX, double mapY) {
+        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, title, mapX, mapY);
     }
 }
