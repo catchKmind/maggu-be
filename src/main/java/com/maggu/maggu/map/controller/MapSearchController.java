@@ -1,5 +1,6 @@
 package com.maggu.maggu.map.controller;
 
+import com.maggu.maggu.map.dto.MapSpotDetail;
 import com.maggu.maggu.post.dto.enums.FeedSort;
 import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
 import com.maggu.maggu.global.response.CursorPageResponse;
@@ -42,6 +43,17 @@ public class MapSearchController {
         FeedSort sort = FeedSort.from(feedSort);
         int clampSize = Math.min(size, MAX_FEED_SIZE);
 
-        return mapSearchService.getPosts(keyword, sort, cursor, clampSize);
+        return mapSearchService.searchPosts(keyword, sort, cursor, clampSize);
+    }
+
+    @Operation(summary = "검색어 기반 장소 조회",
+            description = "검색어로 관광지 후보를 찾아(TourSpotCache title 매칭) " +
+                    "각 장소를 GET /api/v1/map/spots/{contentId}와 동일한 형태로 조립해 리스트로 반환한다. " +
+                    "후보마다 TourAPI를 실시간 호출하므로 최대 10개까지만 반환한다.")
+    @GetMapping("/spots")
+    public List<MapSpotDetail> getSpots(
+            @Parameter(description = "검색어(키워드)") @RequestParam String keyword
+    ) {
+        return mapSearchService.searchSpots(keyword);
     }
 }
