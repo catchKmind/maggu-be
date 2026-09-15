@@ -4,6 +4,7 @@ import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.post.entity.Post;
+import com.maggu.maggu.post.service.FeedCursor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

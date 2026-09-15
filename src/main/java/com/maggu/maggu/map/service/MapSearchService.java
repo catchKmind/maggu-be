@@ -1,15 +1,18 @@
-package com.maggu.maggu.community.service;
+package com.maggu.maggu.map.service;
 
-import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
 import com.maggu.maggu.post.dto.enums.FeedSort;
+import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
 import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
+import com.maggu.maggu.post.service.FeedCursor;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.response.CursorPageResponse;
+import com.maggu.maggu.map.cache.TourSpotCache;
+import com.maggu.maggu.map.client.TourSpot;
+import com.maggu.maggu.map.dto.AutocompleteCandidateResponse;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
-import com.maggu.maggu.post.service.FeedCursor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +25,28 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class PostFeedService {
+public class MapSearchService {
 
+    private static final int AUTOCOMPLETE_MAX_RESULTS = 6;
+
+    private final TourSpotCache tourSpotCache;
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
 
-    public CursorPageResponse<PostFeedItemResponse> getFeed(String contentId, FeedSort sort, String cursor, int size) {
+    public List<AutocompleteCandidateResponse> getAutocompleteCandidates(String keyword) {
+        List<TourSpot> spots = tourSpotCache.findByKeyword(keyword, AUTOCOMPLETE_MAX_RESULTS);
+
+        return spots.stream()
+                .map(spot ->
+                        AutocompleteCandidateResponse.builder()
+                                .contentId(spot.contentId())
+                                .contentType(spot.contentType())
+                                .title(spot.title())
+                                .build())
+                .toList();
+    }
+
+    public CursorPageResponse<PostFeedItemResponse> getPosts(String keyword, FeedSort sort, String cursor, int size) {
         FeedCursor decodedCursor = (cursor == null)
                 ? null
                 : FeedCursor.decode(cursor);
@@ -43,9 +62,9 @@ public class PostFeedService {
 
         List<Post> posts = null;
         if (sort == FeedSort.POPULAR) {
-            posts = postRepository.findPostsByContentIdPopular(contentId, scrapCount, createdAt, cursorId, size + 1);
+            posts = postRepository.findByKeywordPopular(keyword, scrapCount, createdAt, cursorId, size + 1);
         } else if (sort == FeedSort.LATEST) {
-            posts = postRepository.findPostsByContentIdLatest(contentId, createdAt, cursorId, size + 1);
+            posts = postRepository.findByKeywordLatest(keyword, createdAt, cursorId, size + 1);
         } else {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -59,11 +78,10 @@ public class PostFeedService {
                         (first, second) -> first // 첫 번째 값만 유효
                 ));
 
-
         return postCursorPageResponse.map(post -> PostFeedItemResponse.builder()
                 .postId(post.getId())
                 .imageUrl(thumbnailByPostId.get(post.getId()))
                 .build());
-
     }
+
 }

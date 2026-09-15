@@ -30,19 +30,6 @@ public class MapService {
     private final TourSpotCache tourSpotCache;
     private final OngoingFestivalCache ongoingFestivalCache;
 
-    public List<AutocompleteCandidateResponse> getAutocompleteCandidates(String keyword) {
-        List<TourSpot> spots = tourSpotCache.findByKeyword(keyword, AUTOCOMPLETE_MAX_RESULTS);
-
-        return spots.stream()
-                .map(spot ->
-                        AutocompleteCandidateResponse.builder()
-                                .contentId(spot.contentId())
-                                .contentType(spot.contentType())
-                                .title(spot.title())
-                                .build())
-                .toList();
-    }
-
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
         MapSpotDetail mapSpotDetail = tourApiClient.findSpotDetail(contentId);

@@ -1,4 +1,4 @@
-package com.maggu.maggu.community.dto.response;
+package com.maggu.maggu.post.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;

@@ -1,4 +1,4 @@
-package com.maggu.maggu.community.service;
+package com.maggu.maggu.post.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;

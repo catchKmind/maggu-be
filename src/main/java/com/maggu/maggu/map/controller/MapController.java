@@ -55,13 +55,4 @@ public class MapController {
     public MapSpotDetail getSpot(@Parameter(description = "관광지 콘텐츠 ID") @PathVariable String contentId) {
         return mapService.getMapSpotDetail(contentId);
     }
-
-    @Operation(summary = "지도 검색 자동완성 후보 조회",
-            description = "검색창에 입력한 키워드로 관광지 자동완성 후보를 반환한다. " +
-                    "TourSpotCache(관광지 캐시)의 title을 대상으로 매칭하며, 게시글이 없는 관광지도 후보에 포함될 수 있다. " +
-                    "최대 6개까지 반환한다.")
-    @GetMapping("/search/autocomplete")
-    public List<AutocompleteCandidateResponse> getAutocompleteCandidates(@Parameter(description = "검색어(키워드)") @RequestParam String keyword) {
-        return mapService.getAutocompleteCandidates(keyword);
-    }
 }
