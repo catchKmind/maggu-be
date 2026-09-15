@@ -10,6 +10,7 @@ import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourSpot;
 import com.maggu.maggu.map.dto.AutocompleteCandidateResponse;
+import com.maggu.maggu.map.dto.MapSpotDetail;
 import com.maggu.maggu.post.dto.enums.FeedSort;
 import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
 import com.maggu.maggu.post.entity.Post;
@@ -49,6 +50,9 @@ class MapSearchServiceTest {
 
     @Mock
     private PostImageRepository postImageRepository;
+
+    @Mock
+    private MapService mapService;
 
     @InjectMocks
     private MapSearchService mapSearchService;
@@ -106,7 +110,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
 
             verify(postRepository).findByKeywordPopular(KEYWORD, null, null, null, 3);
             verify(postRepository, never()).findByKeywordLatest(any(), any(), any(), anyInt());
@@ -119,7 +123,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.getPosts(KEYWORD, FeedSort.LATEST, null, 2);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.LATEST, null, 2);
 
             verify(postRepository).findByKeywordLatest(KEYWORD, null, null, 3);
             verify(postRepository, never()).findByKeywordPopular(any(), any(), any(), any(), anyInt());
@@ -132,7 +136,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, null, 20);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 20);
 
             verify(postRepository).findByKeywordPopular(KEYWORD, null, null, null, 21);
         }
@@ -154,7 +158,7 @@ class MapSearchServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
 
             assertThat(response.getContent())
                     .extracting(PostFeedItemResponse::postId)
@@ -180,7 +184,7 @@ class MapSearchServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
 
             assertThat(response.getContent()).extracting(PostFeedItemResponse::postId).containsExactly(1L);
             assertThat(response.isHasNext()).isFalse();
@@ -195,7 +199,7 @@ class MapSearchServiceTest {
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
 
             assertThat(response.getContent()).isEmpty();
             assertThat(response.isHasNext()).isFalse();
@@ -210,7 +214,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, cursor.encode(), 2);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, cursor.encode(), 2);
 
             verify(postRepository).findByKeywordPopular(KEYWORD, 15, Instant.ofEpochMilli(5_000), 42L, 3);
         }
@@ -218,7 +222,7 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("잘못된 커서 문자열이면 예외를 던지고 리포지토리를 호출하지 않는다")
         void throwsWhenCursorIsInvalid() {
-            assertThatThrownBy(() -> mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, "not-a-valid-cursor!!", 2))
+            assertThatThrownBy(() -> mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, "not-a-valid-cursor!!", 2))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
@@ -239,9 +243,115 @@ class MapSearchServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.getPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
 
             assertThat(response.getContent().get(0).imageUrl()).isEqualTo("https://img/first.jpg");
+        }
+    }
+
+    @Nested
+    @DisplayName("searchSpots")
+    class SearchSpots {
+
+        private static final int SPOTS_MAX_RESULTS = 10;
+
+        @Test
+        @DisplayName("캐시에서 매칭된 스팟마다 상세를 조회해 리스트로 반환한다")
+        void returnsSpotDetailsForMatchedSpots() {
+            TourSpot first = TourSpot.builder().contentId("126234").contentType(ContentType.TOURIST_ATTRACTION)
+                    .title("해운대해수욕장").mapX(129.16).mapY(35.16).build();
+            TourSpot second = TourSpot.builder().contentId("126235").contentType(ContentType.RESTAURANT)
+                    .title("해운대암소갈비집").mapX(129.17).mapY(35.17).build();
+            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(first, second));
+
+            MapSpotDetail firstDetail = mapSpotDetail("126234", "해운대해수욕장");
+            MapSpotDetail secondDetail = mapSpotDetail("126235", "해운대암소갈비집");
+            given(mapService.getMapSpotDetail("126234")).willReturn(firstDetail);
+            given(mapService.getMapSpotDetail("126235")).willReturn(secondDetail);
+
+            List<MapSpotDetail> result = mapSearchService.searchSpots(KEYWORD);
+
+            assertThat(result).containsExactly(firstDetail, secondDetail);
+        }
+
+        @Test
+        @DisplayName("캐시에 매칭되는 스팟이 없으면 빈 리스트를 반환하고 상세 조회는 호출하지 않는다")
+        void returnsEmptyListWhenNoSpotsMatch() {
+            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
+
+            List<MapSpotDetail> result = mapSearchService.searchSpots(KEYWORD);
+
+            assertThat(result).isEmpty();
+            verifyNoInteractions(mapService);
+        }
+
+        @Test
+        @DisplayName("장소 검색 최대 개수(10개)로 캐시를 조회한다")
+        void queriesCacheWithSpotsMaxResults() {
+            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
+
+            mapSearchService.searchSpots(KEYWORD);
+
+            verify(tourSpotCache).findByKeyword(KEYWORD, SPOTS_MAX_RESULTS);
+        }
+
+        @Test
+        @DisplayName("상세 조회 중 특정 장소가 MAP_CONTENT_NOT_FOUND면 그 장소만 건너뛰고 나머지는 반환한다")
+        void skipsSpotWhenNotFoundAndReturnsRest() {
+            TourSpot missing = TourSpot.builder().contentId("999").contentType(ContentType.TOURIST_ATTRACTION)
+                    .title("해운대사라진곳").mapX(129.0).mapY(35.0).build();
+            TourSpot found = TourSpot.builder().contentId("126234").contentType(ContentType.TOURIST_ATTRACTION)
+                    .title("해운대해수욕장").mapX(129.16).mapY(35.16).build();
+            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(missing, found));
+
+            given(mapService.getMapSpotDetail("999")).willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+            MapSpotDetail foundDetail = mapSpotDetail("126234", "해운대해수욕장");
+            given(mapService.getMapSpotDetail("126234")).willReturn(foundDetail);
+
+            List<MapSpotDetail> result = mapSearchService.searchSpots(KEYWORD);
+
+            assertThat(result).containsExactly(foundDetail);
+        }
+
+        @Test
+        @DisplayName("상세 조회 중 MAP_CONTENT_NOT_FOUND가 아닌 BusinessException이 발생하면 그대로 전파한다")
+        void propagatesOtherBusinessExceptions() {
+            TourSpot spot = TourSpot.builder().contentId("126234").contentType(ContentType.TOURIST_ATTRACTION)
+                    .title("해운대해수욕장").mapX(129.16).mapY(35.16).build();
+            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(spot));
+            given(mapService.getMapSpotDetail("126234"))
+                    .willThrow(new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR));
+
+            assertThatThrownBy(() -> mapSearchService.searchSpots(KEYWORD))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_TOURISM_API_ERROR));
+        }
+
+        @Test
+        @DisplayName("keyword가 null이거나 공백뿐이면 예외를 던지고 캐시/상세 조회를 호출하지 않는다")
+        void throwsWhenKeywordIsBlank() {
+            for (String blank : new String[]{null, "", " ", "   "}) {
+                assertThatThrownBy(() -> mapSearchService.searchSpots(blank))
+                        .isInstanceOfSatisfying(BusinessException.class,
+                                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+            }
+
+            verifyNoInteractions(tourSpotCache, mapService);
+        }
+
+        @Test
+        @DisplayName("keyword 앞뒤 공백은 trim한 뒤 캐시를 조회한다")
+        void trimsKeywordBeforeQueryingCache() {
+            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
+
+            mapSearchService.searchSpots(" " + KEYWORD + " ");
+
+            verify(tourSpotCache).findByKeyword(KEYWORD, SPOTS_MAX_RESULTS);
+        }
+
+        private MapSpotDetail mapSpotDetail(String contentId, String title) {
+            return new MapSpotDetail(contentId, ContentType.TOURIST_ATTRACTION, "051-749-4062", title,
+                    "부산 해운대구", List.of("https://img/a.jpg"), "09:00~18:00", null, null, 129.16, 35.16);
         }
     }
 
