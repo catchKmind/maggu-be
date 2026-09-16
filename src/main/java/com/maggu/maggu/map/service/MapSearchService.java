@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +32,7 @@ public class MapSearchService {
 
     private static final int AUTOCOMPLETE_MAX_RESULTS = 6;
     private static final int SPOTS_MAX_RESULTS = 10;
+    private static final Set<String> POPULAR_KEYWORDS = Set.of("HOT PLACES", "POPULAR", "인기");
 
     private final TourSpotCache tourSpotCache;
     private final PostRepository postRepository;
@@ -68,11 +70,17 @@ public class MapSearchService {
                 ? null
                 : decodedCursor.id();
 
-        List<Post> posts = null;
+        boolean isPopularKeyword = isPopularKeyword(normalizeKeyword);
+
+        List<Post> posts;
         if (sort == FeedSort.POPULAR) {
-            posts = postRepository.findByKeywordPopular(normalizeKeyword, scrapCount, createdAt, cursorId, size + 1);
+            posts = isPopularKeyword
+                    ? postRepository.findAllPopular(scrapCount, createdAt, cursorId, size + 1)
+                    : postRepository.findByKeywordPopular(normalizeKeyword, scrapCount, createdAt, cursorId, size + 1);
         } else if (sort == FeedSort.LATEST) {
-            posts = postRepository.findByKeywordLatest(normalizeKeyword, createdAt, cursorId, size + 1);
+            posts = isPopularKeyword
+                    ? postRepository.findAllLatest(createdAt, cursorId, size + 1)
+                    : postRepository.findByKeywordLatest(normalizeKeyword, createdAt, cursorId, size + 1);
         } else {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -95,12 +103,16 @@ public class MapSearchService {
     public List<MapSpotDetail> searchSpots(String keyword) {
         String normalizeKeyword = normalizeKeyword(keyword);
 
-        List<TourSpot> spots = tourSpotCache.findByKeyword(normalizeKeyword, SPOTS_MAX_RESULTS);
+        List<String> contentIds = isPopularKeyword(normalizeKeyword)
+                ? postRepository.findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS)
+                : tourSpotCache.findByKeyword(normalizeKeyword, SPOTS_MAX_RESULTS).stream()
+                .map(TourSpot::contentId)
+                .toList();
 
-        return spots.stream()
-                .map(spot -> {
+        return contentIds.stream()
+                .map(contentId -> {
                     try {
-                        return mapService.getMapSpotDetail(spot.contentId());
+                        return mapService.getMapSpotDetail(contentId);
                     } catch (BusinessException e) {
                         if (e.getErrorCode() == ErrorCode.MAP_CONTENT_NOT_FOUND) {
                             return null;
@@ -118,5 +130,9 @@ public class MapSearchService {
         }
 
         return keyword.trim();
+    }
+
+    private boolean isPopularKeyword(String normalizeKeyword) {
+        return POPULAR_KEYWORDS.contains(normalizeKeyword.toUpperCase());
     }
 }
