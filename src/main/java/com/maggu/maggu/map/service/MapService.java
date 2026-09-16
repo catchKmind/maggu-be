@@ -30,13 +30,29 @@ public class MapService {
     private final TourSpotCache tourSpotCache;
     private final OngoingFestivalCache ongoingFestivalCache;
 
+    @Transactional(readOnly = true, noRollbackFor = BusinessException.class)
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
         MapSpotDetail mapSpotDetail = tourApiClient.findSpotDetail(contentId);
 
         tourSpotCache.put(toSpot(mapSpotDetail));
 
-        return mapSpotDetail;
+        int placeScrapCount = postRepository.sumScrapCountByTourismContentId(contentId);
+
+        return MapSpotDetail.builder()
+                .contentId(mapSpotDetail.contentId())
+                .contentType(mapSpotDetail.contentType())
+                .tel(mapSpotDetail.tel())
+                .title(mapSpotDetail.title())
+                .addr(mapSpotDetail.addr())
+                .images(mapSpotDetail.images())
+                .businessHours(mapSpotDetail.businessHours())
+                .closedDays(mapSpotDetail.closedDays())
+                .eventPeriod(mapSpotDetail.eventPeriod())
+                .lng(mapSpotDetail.lng())
+                .lat(mapSpotDetail.lat())
+                .placeScrapCount(placeScrapCount)
+                .build();
     }
 
     public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng) {
