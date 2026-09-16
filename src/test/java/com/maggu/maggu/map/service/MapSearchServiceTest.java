@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -230,6 +231,52 @@ class MapSearchServiceTest {
         }
 
         @Test
+        @DisplayName("키워드가 'Hot Places'이고 POPULAR 정렬이면 키워드 매칭 없이 전체 인기순 조회 메서드를 호출한다")
+        void hotPlacesKeywordWithPopularSortCallsFindAllPopular() {
+            given(postRepository.findAllPopular(null, null, null, 3)).willReturn(List.of());
+            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
+
+            mapSearchService.searchPosts("Hot Places", FeedSort.POPULAR, null, 2);
+
+            verify(postRepository).findAllPopular(null, null, null, 3);
+            verify(postRepository, never()).findByKeywordPopular(any(), any(), any(), any(), anyInt());
+        }
+
+        @Test
+        @DisplayName("키워드가 'POPULAR'이고 LATEST 정렬이면 키워드 매칭 없이 전체 최신순 조회 메서드를 호출한다")
+        void popularKeywordWithLatestSortCallsFindAllLatest() {
+            given(postRepository.findAllLatest(null, null, 3)).willReturn(List.of());
+            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
+
+            mapSearchService.searchPosts("POPULAR", FeedSort.LATEST, null, 2);
+
+            verify(postRepository).findAllLatest(null, null, 3);
+            verify(postRepository, never()).findByKeywordLatest(any(), any(), any(), anyInt());
+        }
+
+        @Test
+        @DisplayName("키워드가 '인기'면 대소문자/공백과 무관하게 텍스트 매칭을 건너뛴다")
+        void koreanPopularKeywordSkipsTextMatch() {
+            given(postRepository.findAllPopular(null, null, null, 3)).willReturn(List.of());
+            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
+
+            mapSearchService.searchPosts(" 인기 ", FeedSort.POPULAR, null, 2);
+
+            verify(postRepository).findAllPopular(null, null, null, 3);
+        }
+
+        @Test
+        @DisplayName("'Hot Places' 키워드는 대소문자를 구분하지 않는다")
+        void hotPlacesKeywordIsCaseInsensitive() {
+            given(postRepository.findAllPopular(null, null, null, 3)).willReturn(List.of());
+            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
+
+            mapSearchService.searchPosts("hot places", FeedSort.POPULAR, null, 2);
+
+            verify(postRepository).findAllPopular(null, null, null, 3);
+        }
+
+        @Test
         @DisplayName("게시글마다 sort_order가 가장 앞선 이미지를 대표 이미지로 채운다")
         void fillsRepresentativeImagePerPost() {
             Post postWithImages = post(1L, 10, Instant.ofEpochMilli(1_000));
@@ -347,6 +394,49 @@ class MapSearchServiceTest {
             mapSearchService.searchSpots(" " + KEYWORD + " ");
 
             verify(tourSpotCache).findByKeyword(KEYWORD, SPOTS_MAX_RESULTS);
+        }
+
+        @Test
+        @DisplayName("키워드가 'Hot Places'면 title 매칭 대신 장소별 스크랩 총합 랭킹으로 상세를 조회한다")
+        void hotPlacesKeywordUsesScrapCountRanking() {
+            given(postRepository.findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS))
+                    .willReturn(List.of("126234", "126235"));
+
+            MapSpotDetail first = mapSpotDetail("126234", "해운대해수욕장");
+            MapSpotDetail second = mapSpotDetail("126235", "해운대암소갈비집");
+            given(mapService.getMapSpotDetail("126234")).willReturn(first);
+            given(mapService.getMapSpotDetail("126235")).willReturn(second);
+
+            List<MapSpotDetail> result = mapSearchService.searchSpots("Hot Places");
+
+            assertThat(result).containsExactly(first, second);
+            verifyNoInteractions(tourSpotCache);
+        }
+
+        @Test
+        @DisplayName("키워드가 'POPULAR'/'인기'여도 title 매칭이 아니라 스크랩 총합 랭킹을 사용한다")
+        void popularSynonymKeywordsUseScrapCountRanking() {
+            given(postRepository.findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS)).willReturn(List.of());
+
+            mapSearchService.searchSpots("POPULAR");
+            mapSearchService.searchSpots("인기");
+
+            verify(postRepository, times(2)).findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS);
+            verifyNoInteractions(tourSpotCache);
+        }
+
+        @Test
+        @DisplayName("스크랩 랭킹 상위 장소 중 MAP_CONTENT_NOT_FOUND인 장소는 건너뛰고 나머지는 반환한다")
+        void skipsNotFoundSpotAmongScrapRankedCandidates() {
+            given(postRepository.findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS))
+                    .willReturn(List.of("999", "126234"));
+            given(mapService.getMapSpotDetail("999")).willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+            MapSpotDetail found = mapSpotDetail("126234", "해운대해수욕장");
+            given(mapService.getMapSpotDetail("126234")).willReturn(found);
+
+            List<MapSpotDetail> result = mapSearchService.searchSpots("Hot Places");
+
+            assertThat(result).containsExactly(found);
         }
 
         private MapSpotDetail mapSpotDetail(String contentId, String title) {
