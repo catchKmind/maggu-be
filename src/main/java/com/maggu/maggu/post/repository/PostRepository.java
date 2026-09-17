@@ -136,4 +136,82 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                                           @Param("createdAt") Instant createdAt,
                                           @Param("cursorId") Long cursorId,
                                           @Param("size") Integer size);
+
+    // TODO: 데이터가 많아질 경우 QueryDSL/Full-Text Search Index/Elasticsearch 도입 고려, Like 비교는 Full Scan이라 성능 떨어짐
+    @Query(value = """
+            SELECT p.* FROM post p
+            WHERE p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.place_name LIKE CONCAT('%', :keyword, '%'))
+                AND (:cursorId IS NULL OR (p.scrap_count, p.created_at, p.id) < (:scrapCount, :createdAt, :cursorId))
+            ORDER BY p.scrap_count DESC, p.created_at DESC, p.id DESC
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findByKeywordPopular(@Param("keyword") String keyword,
+                                    @Param("scrapCount") Integer scrapCount,
+                                    @Param("createdAt") Instant createdAt,
+                                    @Param("cursorId") Long cursorId,
+                                    @Param("size") Integer size);
+
+    @Query(value = """
+            SELECT p.* FROM post p
+            WHERE p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (p.content LIKE CONCAT('%', :keyword, '%') OR p.place_name LIKE CONCAT('%', :keyword, '%'))
+                AND (:cursorId IS NULL OR (p.created_at, p.id) < (:createdAt, :cursorId))
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findByKeywordLatest(@Param("keyword") String keyword,
+                                   @Param("createdAt") Instant createdAt,
+                                   @Param("cursorId") Long cursorId,
+                                   @Param("size") Integer size);
+
+    // 지도 검색 "Hot Places" - MapCategory.POPULAR와 동일하게 키워드 매칭 없이 scrap_count로만 정렬
+    @Query(value = """
+            SELECT p.* FROM post p
+            WHERE p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (:cursorId IS NULL OR (p.scrap_count, p.created_at, p.id) < (:scrapCount, :createdAt, :cursorId))
+            ORDER BY p.scrap_count DESC, p.created_at DESC, p.id DESC
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findAllPopular(@Param("scrapCount") Integer scrapCount,
+                              @Param("createdAt") Instant createdAt,
+                              @Param("cursorId") Long cursorId,
+                              @Param("size") Integer size);
+
+    // 지도 검색 "Hot Places/POPULAR/인기"(최신 게시글 탭) - 키워드 매칭 없이 최신순
+    @Query(value = """
+            SELECT p.* FROM post p
+            WHERE p.deleted = false
+                AND EXISTS (SELECT 1 FROM post_image pi WHERE pi.post_id = p.id)
+                AND (:cursorId IS NULL OR (p.created_at, p.id) < (:createdAt, :cursorId))
+            ORDER BY p.created_at DESC, p.id DESC
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findAllLatest(@Param("createdAt") Instant createdAt,
+                             @Param("cursorId") Long cursorId,
+                             @Param("size") Integer size);
+
+    // 지도 검색 "Hot Places"(장소 탭) - 장소(tourism_content_id)별 scrap_count 총합이 높은 순
+    @Query(value = """
+            SELECT p.tourism_content_id
+            FROM post p
+            WHERE p.deleted = false
+                AND p.tourism_content_id IS NOT NULL
+            GROUP BY p.tourism_content_id
+            ORDER BY SUM(p.scrap_count) DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<String> findTopTourismContentIdsByScrapCount(@Param("limit") int limit);
+
+    // 장소(tourism_content_id) 하나에 걸린 게시글들의 scrap_count 합계
+    @Query(value = """
+            SELECT COALESCE(SUM(p.scrap_count), 0)
+            FROM post p
+            WHERE p.deleted = false
+                AND p.tourism_content_id = :contentId
+            """, nativeQuery = true)
+    int sumScrapCountByTourismContentId(@Param("contentId") String contentId);
 }

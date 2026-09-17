@@ -1,9 +1,8 @@
 package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
-import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
-import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -51,9 +49,8 @@ class MapServiceTest {
     @Mock
     private TourSpotCache spotCache;
 
-    @Spy
-    private CloudFrontUrlResolver cloudFrontUrlResolver =
-            new CloudFrontUrlResolver(new CloudFrontProperties(""), "test-bucket");
+    @Mock
+    private OngoingFestivalCache ongoingFestivalCache;
 
     @InjectMocks
     private MapService mapService;
@@ -80,6 +77,19 @@ class MapServiceTest {
             assertThat(feature.properties().contentId()).isEqualTo("126234");
             assertThat(feature.properties().contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
             assertThat(feature.properties().title()).isEqualTo("남산타워");
+            assertThat(feature.properties().isOngoingEvent()).isFalse();
+        }
+
+        @Test
+        @DisplayName("진행 중인 축제 contentId면 isOngoingEvent가 true다")
+        void marksOngoingFestivalAsOngoingEvent() {
+            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "막꾸 축제", 127.05, 37.55);
+            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+            given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
+
+            MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
+
+            assertThat(response.features().get(0).properties().isOngoingEvent()).isTrue();
         }
 
         @Test

@@ -1,7 +1,7 @@
 package com.maggu.maggu.community.service;
 
-import com.maggu.maggu.community.dto.enums.FeedSort;
-import com.maggu.maggu.community.dto.response.PostFeedItemResponse;
+import com.maggu.maggu.post.dto.enums.FeedSort;
+import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
@@ -12,6 +12,7 @@ import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
+import com.maggu.maggu.post.service.FeedCursor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

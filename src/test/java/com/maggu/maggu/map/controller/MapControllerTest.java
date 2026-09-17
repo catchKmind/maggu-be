@@ -138,7 +138,7 @@ class MapControllerTest {
         void returnsSpotsWithinBbox() throws Exception {
             MapSpotFeature feature = MapSpotFeature.of(
                     MapGeometry.of(127.05, 37.55),
-                    new TourSpotProperties("126234", ContentType.TOURIST_ATTRACTION, "남산타워"));
+                    new TourSpotProperties("126234", ContentType.TOURIST_ATTRACTION, "남산타워", true));
             given(mapService.getMapSpots(37.4, 126.8, 37.7, 127.2))
                     .willReturn(MapSpotsResponse.of(List.of(feature)));
 
@@ -150,7 +150,8 @@ class MapControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.type").value("FeatureCollection"))
-                    .andExpect(jsonPath("$.data.features[0].properties.contentId").value("126234"));
+                    .andExpect(jsonPath("$.data.features[0].properties.contentId").value("126234"))
+                    .andExpect(jsonPath("$.data.features[0].properties.isOngoingEvent").value(true));
         }
 
         @Test

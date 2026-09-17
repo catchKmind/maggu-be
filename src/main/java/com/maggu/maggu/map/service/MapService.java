@@ -2,7 +2,7 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
-import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
@@ -26,7 +26,7 @@ public class MapService {
     private final PostRepository postRepository;
     private final TourApiClient tourApiClient;
     private final TourSpotCache tourSpotCache;
-    private final CloudFrontUrlResolver cloudFrontUrlResolver;
+    private final OngoingFestivalCache ongoingFestivalCache;
 
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
@@ -109,7 +109,8 @@ public class MapService {
     private MapSpotFeature toFeature(TourSpot spot) {
 
         MapGeometry geometry = MapGeometry.of(spot.mapX(), spot.mapY());
-        TourSpotProperties properties = TourSpotProperties.from(spot);
+        TourSpotProperties properties = TourSpotProperties.from(
+                spot, ongoingFestivalCache.isOngoing(spot.contentId()));
 
         return MapSpotFeature.of(geometry, properties);
     }
@@ -123,8 +124,7 @@ public class MapService {
                 ? null
                 : placePostCounts.get(projection.getTourismContentId()).intValue();
 
-        MapPostProperties properties = MapPostProperties.from(projection, placePostCount)
-                .withRepresentativeImageUrl(cloudFrontUrlResolver.toPublicUrl(projection.getRepresentativeImageUrl()));
+        MapPostProperties properties = MapPostProperties.from(projection, placePostCount);
 
         return MapPostFeature.of(geometry, properties);
     }
