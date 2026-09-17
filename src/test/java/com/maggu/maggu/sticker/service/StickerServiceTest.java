@@ -3,7 +3,9 @@ package com.maggu.maggu.sticker.service;
 import com.maggu.maggu.community.repository.PostStickerReactionRepository;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
+import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
 import com.maggu.maggu.sticker.dto.StickerResponse;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -38,6 +41,10 @@ class StickerServiceTest {
 
     @Mock
     private PostStickerReactionRepository postStickerReactionRepository;
+
+    @Spy
+    private CloudFrontUrlResolver cloudFrontUrlResolver =
+            new CloudFrontUrlResolver(new CloudFrontProperties(""), "test-bucket");
 
     @InjectMocks
     private StickerService stickerService;

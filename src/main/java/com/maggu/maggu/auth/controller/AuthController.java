@@ -33,10 +33,4 @@ public class AuthController {
         return authService.withdraw(user);
     }
 
-    @Operation(summary = "[테스트용] 임시 토큰 발급 로그인")
-    @PostMapping("/test-login")
-    public TokenResponse testLogin() {
-        return authService.testLogin();
-    }
-
 }

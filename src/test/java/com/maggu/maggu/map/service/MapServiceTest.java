@@ -81,9 +81,9 @@ class MapServiceTest {
         }
 
         @Test
-        @DisplayName("오늘 진행중인 축제로 캐시에 등록된 스팟은 isOngoingEvent가 true다")
-        void marksSpotAsOngoingEventWhenCachedAsOngoing() {
-            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "축제장", 127.05, 37.55);
+        @DisplayName("진행 중인 축제 contentId면 isOngoingEvent가 true다")
+        void marksOngoingFestivalAsOngoingEvent() {
+            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "막꾸 축제", 127.05, 37.55);
             given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
             given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
 
@@ -358,28 +358,17 @@ class MapServiceTest {
     class GetMapSpotDetail {
 
         @Test
-        @DisplayName("TourAPI 조회 결과 필드는 그대로 반환하고, 그 스팟을 TourSpotCache에 upsert한다")
+        @DisplayName("TourAPI 조회 결과를 그대로 반환하고, 그 스팟을 TourSpotCache에 upsert한다")
         void returnsDetailAndUpsertsCache() {
             MapSpotDetail detail = new MapSpotDetail(
                     "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
                     "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
                     "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
             given(tourApiClient.findSpotDetail("126234")).willReturn(detail);
-            given(postRepository.sumScrapCountByTourismContentId("126234")).willReturn(0);
 
             MapSpotDetail response = mapService.getMapSpotDetail("126234");
 
-            assertThat(response.contentId()).isEqualTo(detail.contentId());
-            assertThat(response.contentType()).isEqualTo(detail.contentType());
-            assertThat(response.tel()).isEqualTo(detail.tel());
-            assertThat(response.title()).isEqualTo(detail.title());
-            assertThat(response.addr()).isEqualTo(detail.addr());
-            assertThat(response.images()).isEqualTo(detail.images());
-            assertThat(response.businessHours()).isEqualTo(detail.businessHours());
-            assertThat(response.closedDays()).isEqualTo(detail.closedDays());
-            assertThat(response.eventPeriod()).isEqualTo(detail.eventPeriod());
-            assertThat(response.lng()).isEqualTo(detail.lng());
-            assertThat(response.lat()).isEqualTo(detail.lat());
+            assertThat(response).isEqualTo(detail);
 
             ArgumentCaptor<TourSpot> captor = ArgumentCaptor.forClass(TourSpot.class);
             verify(spotCache).put(captor.capture());
@@ -390,36 +379,6 @@ class MapServiceTest {
             assertThat(cached.title()).isEqualTo("남산타워");
             assertThat(cached.mapX()).isEqualTo(127.05);
             assertThat(cached.mapY()).isEqualTo(37.55);
-        }
-
-        @Test
-        @DisplayName("장소(tourism_content_id)에 걸린 게시글들의 scrap_count 합계를 placeScrapCount에 채운다")
-        void fillsPlaceScrapCountFromPostScrapSum() {
-            MapSpotDetail detail = new MapSpotDetail(
-                    "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
-                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
-                    "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
-            given(tourApiClient.findSpotDetail("126234")).willReturn(detail);
-            given(postRepository.sumScrapCountByTourismContentId("126234")).willReturn(42);
-
-            MapSpotDetail response = mapService.getMapSpotDetail("126234");
-
-            assertThat(response.placeScrapCount()).isEqualTo(42);
-        }
-
-        @Test
-        @DisplayName("이 장소에 걸린 게시글이 없으면 placeScrapCount는 0이다")
-        void placeScrapCountIsZeroWhenNoPostsTagThisPlace() {
-            MapSpotDetail detail = new MapSpotDetail(
-                    "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
-                    "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
-                    "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
-            given(tourApiClient.findSpotDetail("126234")).willReturn(detail);
-            given(postRepository.sumScrapCountByTourismContentId("126234")).willReturn(0);
-
-            MapSpotDetail response = mapService.getMapSpotDetail("126234");
-
-            assertThat(response.placeScrapCount()).isZero();
         }
 
         @Test

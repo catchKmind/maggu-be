@@ -23,36 +23,18 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class MapService {
 
-    private static final int AUTOCOMPLETE_MAX_RESULTS = 6;
-
     private final PostRepository postRepository;
     private final TourApiClient tourApiClient;
     private final TourSpotCache tourSpotCache;
     private final OngoingFestivalCache ongoingFestivalCache;
 
-    @Transactional(readOnly = true, noRollbackFor = BusinessException.class)
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
         MapSpotDetail mapSpotDetail = tourApiClient.findSpotDetail(contentId);
 
         tourSpotCache.put(toSpot(mapSpotDetail));
 
-        int placeScrapCount = postRepository.sumScrapCountByTourismContentId(contentId);
-
-        return MapSpotDetail.builder()
-                .contentId(mapSpotDetail.contentId())
-                .contentType(mapSpotDetail.contentType())
-                .tel(mapSpotDetail.tel())
-                .title(mapSpotDetail.title())
-                .addr(mapSpotDetail.addr())
-                .images(mapSpotDetail.images())
-                .businessHours(mapSpotDetail.businessHours())
-                .closedDays(mapSpotDetail.closedDays())
-                .eventPeriod(mapSpotDetail.eventPeriod())
-                .lng(mapSpotDetail.lng())
-                .lat(mapSpotDetail.lat())
-                .placeScrapCount(placeScrapCount)
-                .build();
+        return mapSpotDetail;
     }
 
     public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng) {
@@ -127,7 +109,8 @@ public class MapService {
     private MapSpotFeature toFeature(TourSpot spot) {
 
         MapGeometry geometry = MapGeometry.of(spot.mapX(), spot.mapY());
-        TourSpotProperties properties = TourSpotProperties.from(spot, ongoingFestivalCache.isOngoing(spot.contentId()));
+        TourSpotProperties properties = TourSpotProperties.from(
+                spot, ongoingFestivalCache.isOngoing(spot.contentId()));
 
         return MapSpotFeature.of(geometry, properties);
     }

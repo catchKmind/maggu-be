@@ -56,7 +56,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/v1/auth/apple")
+    @DisplayName("POST /api/v1/auth/login")
     class LoginWithApple {
 
         @Test
@@ -65,7 +65,7 @@ class AuthControllerTest {
             given(authService.loginWithApple(any()))
                     .willReturn(TokenResponse.of("access-token", "refresh-token", 3600L));
 
-            mockMvc.perform(post("/api/v1/auth/apple")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(
                                     new AppleLoginReq("identity-token", "auth-code", "윤시진"))))
@@ -80,7 +80,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("identityToken이 없으면 400을 반환하고 서비스를 호출하지 않는다")
         void rejectsBlankIdentityToken() throws Exception {
-            mockMvc.perform(post("/api/v1/auth/apple")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"identityToken":"","authorizationCode":null,"fullName":"윤시진"}
@@ -93,7 +93,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("DELETE /api/v1/auth/withdraw")
+    @DisplayName("DELETE /api/v1/auth/delete")
     class Withdraw {
 
         @Test
@@ -103,7 +103,7 @@ class AuthControllerTest {
             authenticateAs(user);
             given(authService.withdraw(any())).willReturn(WithdrawResponse.ok());
 
-            mockMvc.perform(delete("/api/v1/auth/withdraw"))
+            mockMvc.perform(delete("/api/v1/auth/delete"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.withdrawn").value(true));
@@ -114,7 +114,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("인증 정보가 없으면 401을 반환하고 서비스를 호출하지 않는다")
         void returnsUnauthorizedWhenNotAuthenticated() throws Exception {
-            mockMvc.perform(delete("/api/v1/auth/withdraw"))
+            mockMvc.perform(delete("/api/v1/auth/delete"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("AUTH-002"));
 

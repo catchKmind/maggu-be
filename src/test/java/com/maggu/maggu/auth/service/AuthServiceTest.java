@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -163,18 +162,17 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("Apple revoke가 실패하면 로컬 계정을 삭제하지 않는다")
-        void doesNotDeleteWhenAppleRevokeFails() {
+        @DisplayName("Apple revoke가 실패해도 로컬 계정 삭제는 진행한다")
+        void deletesAccountEvenWhenAppleRevokeFails() {
             AppUser user = appUser(10L, "user@test.com", "시진");
             given(userRepository.findById(10L)).willReturn(Optional.of(user));
             willThrow(new BusinessException(ErrorCode.AUTH_APPLE_REVOKE_FAILED))
                     .given(appleAuthService).revoke(user);
 
-            assertThatThrownBy(() -> authService.withdraw(user))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.AUTH_APPLE_REVOKE_FAILED));
+            WithdrawResponse response = authService.withdraw(user);
 
-            verify(userWithdrawalService, never()).deleteAccount(any());
+            assertThat(response.withdrawn()).isTrue();
+            verify(userWithdrawalService).deleteAccount(user);
         }
 
         @Test
