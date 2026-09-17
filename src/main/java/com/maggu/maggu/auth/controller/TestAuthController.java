@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Profile({"local", "dev", "default"})
+@Profile({"local", "dev", "default", "prod"})
 public class TestAuthController {
 
     private final UserRepository appUserRepository;
