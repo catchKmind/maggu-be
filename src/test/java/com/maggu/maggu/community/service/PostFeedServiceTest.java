@@ -6,8 +6,10 @@ import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.global.exception.BusinessException;
+import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.response.CursorPageResponse;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -41,6 +44,10 @@ class PostFeedServiceTest {
 
     @Mock
     private PostImageRepository postImageRepository;
+
+    @Spy
+    private CloudFrontUrlResolver cloudFrontUrlResolver =
+            new CloudFrontUrlResolver(new CloudFrontProperties(""), "test-bucket");
 
     @InjectMocks
     private PostFeedService postFeedService;

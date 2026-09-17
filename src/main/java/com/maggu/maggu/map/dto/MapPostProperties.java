@@ -40,4 +40,16 @@ public record MapPostProperties(
                 placePostCount
         );
     }
+
+    public MapPostProperties withRepresentativeImageUrl(String representativeImageUrl) {
+        return new MapPostProperties(
+                postId,
+                slug,
+                representativeImageUrl,
+                scrapCount,
+                tourismContentId,
+                placeName,
+                placePostCount
+        );
+    }
 }

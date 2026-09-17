@@ -11,6 +11,7 @@ import com.maggu.maggu.community.repository.PostStickerReactionRepository;
 import com.maggu.maggu.community.repository.ScrapRepository;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.post.repository.PostRepository;
 import com.maggu.maggu.user.entity.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class PostQueryService {
     private final CommentRepository commentRepository;
     private final ScrapRepository scrapRepository;
     private final PostStickerReactionRepository reactionRepository;
+    private final CloudFrontUrlResolver cloudFrontUrlResolver;
 
     public PageResponse<PostSummaryResponse> getFeed(PostCategory category, String sort, AppUser viewer, int page, int size) {
         boolean popular = SORT_POPULAR.equalsIgnoreCase(sort);
@@ -71,7 +73,7 @@ public class PostQueryService {
         Post post = getActivePost(postId);
 
         List<String> imageUrls = postImageRepository.findByPostOrderBySortOrderAsc(post).stream()
-                .map(PostImage::getImageUrl)
+                .map(image -> cloudFrontUrlResolver.toPublicUrl(image.getImageUrl()))
                 .toList();
 
         boolean scrappedByMe = scrapRepository.existsByUserAndPost(viewer, post);
@@ -110,7 +112,7 @@ public class PostQueryService {
                 .collect(Collectors.groupingBy(
                         image -> image.getPost().getId(),
                         LinkedHashMap::new,
-                        Collectors.mapping(PostImage::getImageUrl, Collectors.toList())
+                        Collectors.mapping(image -> cloudFrontUrlResolver.toPublicUrl(image.getImageUrl()), Collectors.toList())
                 ));
 
         Set<Long> scrappedPostIds = scrapRepository.findByUserAndPostIn(viewer, content).stream()

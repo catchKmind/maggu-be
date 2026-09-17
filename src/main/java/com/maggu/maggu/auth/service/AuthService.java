@@ -99,7 +99,7 @@ public class AuthService {
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
         return TokenResponse.of(accessToken, refreshToken, jwtTokenProvider.getAccessTokenValiditySeconds());
     }
-
+    @Transactional
     public TokenResponse testLogin() {
         String testAppleSub = "test_apple_sub_default";
         String testEmail = "test@maggu.com";

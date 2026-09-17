@@ -3,6 +3,7 @@ package com.maggu.maggu.sticker.service;
 import com.maggu.maggu.community.repository.PostStickerReactionRepository;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
 import com.maggu.maggu.sticker.dto.StickerResponse;
@@ -22,6 +23,7 @@ public class StickerService {
 
     private final StickerRepository stickerRepository;
     private final PostStickerReactionRepository postStickerReactionRepository;
+    private final CloudFrontUrlResolver cloudFrontUrlResolver;
 
     public List<StickerResponse> getMyStickers(AppUser user) {
         List<Sticker> stickerList = stickerRepository.findAllByUserAndDeletedFalse(user);
@@ -29,7 +31,7 @@ public class StickerService {
         return stickerList.stream()
                 .map(s -> StickerResponse.builder()
                         .stickerId(s.getId())
-                        .imageUrl(s.getImageUrl())
+                        .imageUrl(cloudFrontUrlResolver.toPublicUrl(s.getImageUrl()))
                         .build())
                 .toList();
     }
@@ -44,7 +46,7 @@ public class StickerService {
 
         return StickerResponse.builder()
                 .stickerId(savedSticker.getId())
-                .imageUrl(savedSticker.getImageUrl())
+                .imageUrl(cloudFrontUrlResolver.toPublicUrl(savedSticker.getImageUrl()))
                 .build();
     }
 

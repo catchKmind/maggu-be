@@ -1,7 +1,9 @@
 package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
+import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -47,6 +50,10 @@ class MapServiceTest {
 
     @Mock
     private TourSpotCache spotCache;
+
+    @Spy
+    private CloudFrontUrlResolver cloudFrontUrlResolver =
+            new CloudFrontUrlResolver(new CloudFrontProperties(""), "test-bucket");
 
     @InjectMocks
     private MapService mapService;

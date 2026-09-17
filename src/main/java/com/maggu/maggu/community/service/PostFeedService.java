@@ -7,6 +7,7 @@ import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.response.CursorPageResponse;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class PostFeedService {
 
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
+    private final CloudFrontUrlResolver cloudFrontUrlResolver;
 
     public CursorPageResponse<PostFeedItemResponse> getFeed(String contentId, FeedSort sort, String cursor, int size) {
         FeedCursor decodedCursor = (cursor == null)
@@ -61,7 +63,7 @@ public class PostFeedService {
 
         return postCursorPageResponse.map(post -> PostFeedItemResponse.builder()
                 .postId(post.getId())
-                .imageUrl(thumbnailByPostId.get(post.getId()))
+                .imageUrl(cloudFrontUrlResolver.toPublicUrl(thumbnailByPostId.get(post.getId())))
                 .build());
 
     }

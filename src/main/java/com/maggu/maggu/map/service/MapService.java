@@ -2,6 +2,7 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourApiClient;
@@ -25,6 +26,7 @@ public class MapService {
     private final PostRepository postRepository;
     private final TourApiClient tourApiClient;
     private final TourSpotCache tourSpotCache;
+    private final CloudFrontUrlResolver cloudFrontUrlResolver;
 
     public MapSpotDetail getMapSpotDetail(String contentId) {
 
@@ -121,7 +123,8 @@ public class MapService {
                 ? null
                 : placePostCounts.get(projection.getTourismContentId()).intValue();
 
-        MapPostProperties properties = MapPostProperties.from(projection, placePostCount);
+        MapPostProperties properties = MapPostProperties.from(projection, placePostCount)
+                .withRepresentativeImageUrl(cloudFrontUrlResolver.toPublicUrl(projection.getRepresentativeImageUrl()));
 
         return MapPostFeature.of(geometry, properties);
     }
