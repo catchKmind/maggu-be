@@ -31,3 +31,10 @@ apple:
   team-id: TESTTEAMID
   key-id: TESTKEYID1
   key-path: classpath:AppleSignInsKey.p8
+
+cloud:
+  aws:
+    s3:
+      bucket: maggu-bucket-381492214724-ap-northeast-2-an
+    cloudfront:
+      domain:
