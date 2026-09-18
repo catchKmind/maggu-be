@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "place_scrap",
+        indexes = @Index(name = "idx_place_scrap_folder", columnList = "place_folder_id"),
         uniqueConstraints = @UniqueConstraint(name = "uq_place_scrap_folder_spot",
                 columnNames = {"place_folder_id", "tourism_content_id"})
 )
