@@ -29,6 +29,9 @@ public enum ErrorCode {
     EXTERNAL_TOURISM_API_ERROR(HttpStatus.BAD_GATEWAY, "MAP-001", "관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."),
     MAP_CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "MAP-002", "유효하지 않은 장소입니다."),
 
+    // Place
+    PLACE_FOLDER_NAME_DUPLICATE(HttpStatus.CONFLICT, "PLACE-001", "이미 사용 중인 폴더명입니다."),
+
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST-001", "게시글을 찾을 수 없습니다."),
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "POST-002", "본인이 작성한 게시글만 삭제할 수 있습니다."),
