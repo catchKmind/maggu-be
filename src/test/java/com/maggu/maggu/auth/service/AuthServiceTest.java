@@ -5,10 +5,12 @@ import com.maggu.maggu.auth.apple.AppleJwtValidator;
 import com.maggu.maggu.auth.dto.AppleLoginReq;
 import com.maggu.maggu.auth.dto.TokenResponse;
 import com.maggu.maggu.auth.dto.WithdrawResponse;
+import com.maggu.maggu.community.service.ScrapService;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.security.jwt.JwtTokenProvider;
+import com.maggu.maggu.place.service.PlaceFolderService;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
 import com.maggu.maggu.user.service.UserService;
@@ -52,6 +54,12 @@ class AuthServiceTest {
     private UserWithdrawalService userWithdrawalService;
 
     @Mock
+    private ScrapService scrapService;
+
+    @Mock
+    private PlaceFolderService placeFolderService;
+
+    @Mock
     private JwtTokenProvider jwtTokenProvider;
 
     @InjectMocks
@@ -79,6 +87,8 @@ class AuthServiceTest {
             assertThat(response.tokenType()).isEqualTo("Bearer");
             assertThat(response.expiresIn()).isEqualTo(3600L);
             verify(userService, never()).createUser(any(), any(), any(), any());
+            verify(scrapService, never()).createDefaultFolder(any());
+            verify(placeFolderService, never()).createDefaultPlaceFolder(any());
             verify(appleAuthService).syncRefreshToken(any(AppUser.class), eq("auth-code"));
         }
 
@@ -91,8 +101,9 @@ class AuthServiceTest {
             given(appleJwtValidator.getEmail(claims)).willReturn("user@test.com");
             given(userRepository.findByProviderAndProviderUserId(Provider.APPLE, "apple-user-1"))
                     .willReturn(Optional.empty());
+            AppUser created = appUser(11L, "user@test.com", "윤시진");
             given(userService.createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진"))
-                    .willReturn(appUser(11L, "user@test.com", "윤시진"));
+                    .willReturn(created);
             stubTokens();
 
             TokenResponse response = authService.loginWithApple(
@@ -100,6 +111,8 @@ class AuthServiceTest {
 
             assertThat(response.accessToken()).isEqualTo("access-token");
             verify(userService).createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진");
+            verify(scrapService).createDefaultFolder(created);
+            verify(placeFolderService).createDefaultPlaceFolder(created);
             verify(userRepository).flush();
             verify(appleAuthService, never()).syncRefreshToken(any(), any());
         }
@@ -113,15 +126,18 @@ class AuthServiceTest {
             given(appleJwtValidator.getEmail(claims)).willReturn(null);
             given(userRepository.findByProviderAndProviderUserId(Provider.APPLE, "apple-user-1"))
                     .willReturn(Optional.empty());
+            AppUser created = appUser(12L, "apple-user-1@privaterelay.appleid.com", "생성된닉네임");
             given(userService.createUser(eq(Provider.APPLE), eq("apple-user-1"),
                     eq("apple-user-1@privaterelay.appleid.com"), eq(null)))
-                    .willReturn(appUser(12L, "apple-user-1@privaterelay.appleid.com", "생성된닉네임"));
+                    .willReturn(created);
             stubTokens();
 
             authService.loginWithApple(new AppleLoginReq("identity-token", null, null));
 
             verify(userService).createUser(Provider.APPLE, "apple-user-1",
                     "apple-user-1@privaterelay.appleid.com", null);
+            verify(scrapService).createDefaultFolder(created);
+            verify(placeFolderService).createDefaultPlaceFolder(created);
         }
 
         @Test
