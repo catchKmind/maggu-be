@@ -5,10 +5,12 @@ import com.maggu.maggu.auth.apple.AppleJwtValidator;
 import com.maggu.maggu.auth.dto.AppleLoginReq;
 import com.maggu.maggu.auth.dto.TokenResponse;
 import com.maggu.maggu.auth.dto.WithdrawResponse;
+import com.maggu.maggu.community.service.ScrapService;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.security.jwt.JwtTokenProvider;
+import com.maggu.maggu.place.service.PlaceFolderService;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
 import com.maggu.maggu.user.service.UserService;
@@ -34,6 +36,8 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final UserWithdrawalService userWithdrawalService;
+    private final ScrapService scrapService;
+    private final PlaceFolderService placeFolderService;
     private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
@@ -86,6 +90,8 @@ public class AuthService {
 
         try {
             AppUser created = userService.createUser(Provider.APPLE, appleUserId, resolvedEmail, fullName);
+            scrapService.createDefaultFolder(created);
+            placeFolderService.createDefaultPlaceFolder(created);
             userRepository.flush();
             return created;
         } catch (DataIntegrityViolationException e) {
