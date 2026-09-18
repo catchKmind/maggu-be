@@ -9,4 +9,6 @@ import java.util.List;
 public interface PlaceFolderRepository extends JpaRepository<PlaceFolder, Long> {
 
     List<PlaceFolder> findAllByUserOrderByIsDefaultDescCreatedAtAsc(AppUser user);
+
+    boolean existsByUserAndName(AppUser user, String name);
 }
