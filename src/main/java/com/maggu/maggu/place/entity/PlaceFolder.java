@@ -30,6 +30,13 @@ public class PlaceFolder extends BaseEntity {
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
 
+    public boolean isOwnedBy(AppUser candidate) {
+        if (this.user == null || candidate == null) {
+            return false;
+        }
+        return this.user.getId().equals(candidate.getId());
+    }
+
     @Builder
     public PlaceFolder(AppUser user, String name, String icon, boolean isDefault) {
         this.user = user;

@@ -31,6 +31,9 @@ public enum ErrorCode {
 
     // Place
     PLACE_FOLDER_NAME_DUPLICATE(HttpStatus.CONFLICT, "PLACE-001", "이미 사용 중인 폴더명입니다."),
+    PLACE_FOLDER_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE-002", "폴더를 찾을 수 없습니다."),
+    PLACE_FOLDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PLACE-003", "본인 소유 폴더만 접근할 수 있습니다."),
+    PLACE_SCRAP_DUPLICATE(HttpStatus.CONFLICT, "PLACE-004", "이미 저장된 장소입니다."),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "POST-001", "게시글을 찾을 수 없습니다."),
@@ -54,7 +57,7 @@ public enum ErrorCode {
 
     // Sticker
     STICKER_NOT_FOUND(HttpStatus.NOT_FOUND, "STICKER-001", "스티커를 찾을 수 없습니다."),
-    STICKER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STICKER-002", "본인이 생성한 스티커만 삭제할 수 있습니다.");
+    STICKER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STICKER-002", "본인이 생성한 스티커만 접근할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;
