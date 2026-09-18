@@ -20,6 +20,9 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class PlaceScrapService {
 
+    private static final String DEFAULT_PLACE_FOLDER_NAME = "내 장소";
+    private static final String DEFAULT_PLACE_FOLDER_ICON = "❤️";
+
     private final PlaceFolderRepository placeFolderRepository;
 
     @Transactional(readOnly = true)
@@ -64,8 +67,8 @@ public class PlaceScrapService {
     @Transactional
     public void createDefaultPlaceFolder(AppUser user) {
         placeFolderRepository.save(PlaceFolder.builder()
-                .name("내 장소")
-                .icon("❤️")
+                .name(DEFAULT_PLACE_FOLDER_NAME)
+                .icon(DEFAULT_PLACE_FOLDER_ICON)
                 .isDefault(true)
                 .user(user)
                 .build());

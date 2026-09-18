@@ -81,7 +81,7 @@ class PlaceScrapServiceTest {
             AppUser user = appUser("나그네");
             PlaceFolderCreateRequest request = new PlaceFolderCreateRequest("여행", "🐠");
             given(placeFolderRepository.existsByUserAndName(user, "여행")).willReturn(false);
-            given(placeFolderRepository.save(any(PlaceFolder.class))).willAnswer(invocation -> {
+            given(placeFolderRepository.saveAndFlush(any(PlaceFolder.class))).willAnswer(invocation -> {
                 PlaceFolder toSave = invocation.getArgument(0);
                 ReflectionTestUtils.setField(toSave, "id", 10L);
                 return toSave;
@@ -101,7 +101,7 @@ class PlaceScrapServiceTest {
             PlaceFolderCreateRequest request = new PlaceFolderCreateRequest("여행", "🐠");
             given(placeFolderRepository.existsByUserAndName(user, "여행")).willReturn(false);
             ArgumentCaptor<PlaceFolder> captor = ArgumentCaptor.forClass(PlaceFolder.class);
-            given(placeFolderRepository.save(captor.capture())).willAnswer(invocation -> invocation.getArgument(0));
+            given(placeFolderRepository.saveAndFlush(captor.capture())).willAnswer(invocation -> invocation.getArgument(0));
 
             placeScrapService.createPlaceFolder(user, request);
 
@@ -120,7 +120,7 @@ class PlaceScrapServiceTest {
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PLACE_FOLDER_NAME_DUPLICATE));
 
-            verify(placeFolderRepository, never()).save(any());
+            verify(placeFolderRepository, never()).saveAndFlush(any());
         }
     }
 
