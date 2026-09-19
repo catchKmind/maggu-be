@@ -7,6 +7,7 @@ import com.maggu.maggu.auth.service.AuthService;
 import com.maggu.maggu.global.auth.CurrentUser;
 import com.maggu.maggu.user.entity.AppUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AuthController {
 
     @Operation(summary = "회원 탈퇴하기", description = "Apple 연동을 해제(Revoke)하고 회원 정보를 삭제한다.")
     @DeleteMapping("/delete")
-    public WithdrawResponse withdraw(@CurrentUser AppUser user) {
+    public WithdrawResponse withdraw(@Parameter(hidden = true) @CurrentUser AppUser user) {
         return authService.withdraw(user);
     }
 
