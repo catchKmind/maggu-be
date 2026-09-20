@@ -34,7 +34,15 @@ apple:
 
 cloud:
   aws:
+    credentials:
+      access-key: test-access-key
+      secret-key: test-secret-key
     s3:
       bucket: maggu-bucket-381492214724-ap-northeast-2-an
     cloudfront:
       domain:
+    region:
+      static: ap-northeast-2
+
+upload:
+  presigned-url-expiration-seconds: 300

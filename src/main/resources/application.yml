@@ -39,10 +39,13 @@ cloud:
       access-key: ${AWS_ACCESS_KEY}
       secret-key: ${AWS_SECRET_KEY}
     s3:
-      bucket: maggu-bucket-381492214724-ap-northeast-2-an
+      bucket: maggu-bucket-418316940851-ap-northeast-2-an
     cloudfront:
       domain: ${CLOUDFRONT_DOMAIN:d26phrt3m0ikhe.cloudfront.net}
     region:
       static: ap-northeast-2
     stack:
       auto: false
+
+upload:
+  presigned-url-expiration-seconds: 300
