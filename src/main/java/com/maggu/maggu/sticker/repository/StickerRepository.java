@@ -12,6 +12,8 @@ import java.util.Optional;
 
 public interface StickerRepository extends JpaRepository<Sticker, Long> {
 
+    Optional<Sticker> findByGiphyId(String giphyId);
+
     List<Sticker> findAllByUserAndDeletedFalse(AppUser user);
 
     Optional<Sticker> findByIdAndDeletedFalse(Long id);
