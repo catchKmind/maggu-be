@@ -10,6 +10,7 @@ import com.maggu.maggu.place.entity.PlaceScrap;
 import com.maggu.maggu.place.repository.PlaceFolderRepository;
 import com.maggu.maggu.place.repository.PlaceScrapRepository;
 import com.maggu.maggu.sticker.entity.Sticker;
+import com.maggu.maggu.sticker.entity.StickerType;
 import com.maggu.maggu.sticker.repository.StickerRepository;
 import com.maggu.maggu.user.entity.AppUser;
 import org.junit.jupiter.api.DisplayName;
@@ -104,6 +105,27 @@ class PlaceScrapServiceTest {
 
             verify(placeFolderRepository, never()).findById(any());
             verify(placeScrapRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("GIPHY 스티커는 소유자가 없어도(공유 스티커) 누구나 사용할 수 있다")
+        void allowsAnyUserToUseGiphySticker() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker sticker = giphySticker(2L);
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
+            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.existsByPlaceFolderIdAndTourismContentId(3L, "13579")).willReturn(false);
+            given(placeScrapRepository.saveAndFlush(any(PlaceScrap.class))).willAnswer(invocation -> {
+                PlaceScrap toSave = invocation.getArgument(0);
+                ReflectionTestUtils.setField(toSave, "id", 100L);
+                return toSave;
+            });
+
+            PlaceScrapCreateResponse result = placeScrapService.createPlaceScrap(user, request);
+
+            assertThat(result.stickerId()).isEqualTo(2L);
         }
 
         @Test
@@ -208,6 +230,18 @@ class PlaceScrapServiceTest {
                 .name(owner.getNickname() + "의 커스텀 스티커")
                 .imageUrl("https://img/" + id + ".png")
                 .user(owner)
+                .type(StickerType.CUSTOM)
+                .build();
+        ReflectionTestUtils.setField(sticker, "id", id);
+        return sticker;
+    }
+
+    private Sticker giphySticker(Long id) {
+        Sticker sticker = Sticker.builder()
+                .name("GIPHY STICKER")
+                .imageUrl("https://media.giphy.com/" + id + ".gif")
+                .type(StickerType.GIPHY)
+                .giphyId("giphy-" + id)
                 .build();
         ReflectionTestUtils.setField(sticker, "id", id);
         return sticker;

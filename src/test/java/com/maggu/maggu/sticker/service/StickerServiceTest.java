@@ -6,10 +6,12 @@ import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
 import com.maggu.maggu.sticker.dto.StickerResponse;
 import com.maggu.maggu.sticker.entity.Sticker;
+import com.maggu.maggu.sticker.entity.StickerType;
 import com.maggu.maggu.sticker.repository.StickerRepository;
 import com.maggu.maggu.user.entity.AppUser;
 import org.junit.jupiter.api.DisplayName;
@@ -66,6 +68,8 @@ class StickerServiceTest {
             assertThat(result).extracting(StickerResponse::stickerId).containsExactly(1L, 2L);
             assertThat(result).extracting(StickerResponse::imageUrl)
                     .containsExactly("https://img/1.png", "https://img/2.png");
+            assertThat(result).extracting(StickerResponse::type)
+                    .containsExactly(StickerType.CUSTOM, StickerType.CUSTOM);
         }
 
         @Test
@@ -99,6 +103,7 @@ class StickerServiceTest {
 
             assertThat(result.stickerId()).isEqualTo(10L);
             assertThat(result.imageUrl()).isEqualTo("https://img/new.png");
+            assertThat(result.type()).isEqualTo(StickerType.CUSTOM);
         }
 
         @Test
@@ -113,6 +118,47 @@ class StickerServiceTest {
 
             assertThat(captor.getValue().getName()).isEqualTo("나그네의 커스텀 스티커");
             assertThat(captor.getValue().getUser()).isEqualTo(user);
+            assertThat(captor.getValue().getType()).isEqualTo(StickerType.CUSTOM);
+        }
+    }
+
+    @Nested
+    @DisplayName("createGiphySticker")
+    class CreateGiphySticker {
+
+        @Test
+        @DisplayName("같은 giphyId로 저장된 스티커가 없으면 GIPHY 타입으로 새로 저장하고, 소유자 없이(user=null) 응답한다")
+        void createsNewGiphyStickerWhenNotFound() {
+            GiphyStickerCreateRequest request = new GiphyStickerCreateRequest("giphy-1", "https://media.giphy.com/1.gif");
+            given(stickerRepository.findByGiphyId("giphy-1")).willReturn(Optional.empty());
+            ArgumentCaptor<Sticker> captor = ArgumentCaptor.forClass(Sticker.class);
+            given(stickerRepository.save(captor.capture())).willAnswer(invocation -> {
+                Sticker toSave = invocation.getArgument(0);
+                ReflectionTestUtils.setField(toSave, "id", 20L);
+                return toSave;
+            });
+
+            StickerResponse result = stickerService.createGiphySticker(request);
+
+            assertThat(result.stickerId()).isEqualTo(20L);
+            assertThat(result.imageUrl()).isEqualTo("https://media.giphy.com/1.gif");
+            assertThat(result.type()).isEqualTo(StickerType.GIPHY);
+            assertThat(captor.getValue().getGiphyId()).isEqualTo("giphy-1");
+            assertThat(captor.getValue().getUser()).isNull();
+        }
+
+        @Test
+        @DisplayName("이미 같은 giphyId로 저장된 스티커가 있으면 새로 저장하지 않고 기존 스티커를 그대로 재사용한다")
+        void reusesExistingStickerWithSameGiphyId() {
+            Sticker existing = giphySticker(30L, "giphy-2", "https://media.giphy.com/2.gif");
+            GiphyStickerCreateRequest request = new GiphyStickerCreateRequest("giphy-2", "https://media.giphy.com/2.gif");
+            given(stickerRepository.findByGiphyId("giphy-2")).willReturn(Optional.of(existing));
+
+            StickerResponse result = stickerService.createGiphySticker(request);
+
+            assertThat(result.stickerId()).isEqualTo(30L);
+            assertThat(result.type()).isEqualTo(StickerType.GIPHY);
+            verify(stickerRepository, never()).save(any());
         }
     }
 
@@ -202,6 +248,18 @@ class StickerServiceTest {
                 .name(name)
                 .imageUrl(imageUrl)
                 .user(user)
+                .type(StickerType.CUSTOM)
+                .build();
+        ReflectionTestUtils.setField(sticker, "id", id);
+        return sticker;
+    }
+
+    private Sticker giphySticker(Long id, String giphyId, String imageUrl) {
+        Sticker sticker = Sticker.builder()
+                .name("GIPHY STICKER")
+                .imageUrl(imageUrl)
+                .type(StickerType.GIPHY)
+                .giphyId(giphyId)
                 .build();
         ReflectionTestUtils.setField(sticker, "id", id);
         return sticker;
