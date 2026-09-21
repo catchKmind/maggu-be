@@ -1,6 +1,7 @@
 package com.maggu.maggu.sticker.controller;
 
 import com.maggu.maggu.global.auth.CurrentUser;
+import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
 import com.maggu.maggu.sticker.dto.StickerResponse;
@@ -21,6 +22,17 @@ import java.util.List;
 public class StickerController {
 
     private final StickerService stickerService;
+
+    @Operation(
+            summary = "GIPHY 스티커 생성",
+            description = "GIPHY 공식 API 정책상 BE는 GIPHY API를 호출하지 않는다. " +
+                    "  FE가 GIPHY를 직접 호출해서 처리해야 하고, 이 API는 FE가 이미 고른 GIF의 giphyId와 실제 이미지 URL만 넘겨받아 저장하는 역할만 한다."
+    )
+
+    @PostMapping("/giphy")
+    public StickerResponse createGiphySticker(@Valid @RequestBody GiphyStickerCreateRequest request) {
+        return stickerService.createGiphySticker(request);
+    }
 
     @Operation(summary = "내 스티커 목록 조회")
     @GetMapping
