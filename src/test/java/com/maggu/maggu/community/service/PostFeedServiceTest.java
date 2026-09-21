@@ -62,12 +62,12 @@ class PostFeedServiceTest {
         void popularSortCallsPopularRepositoryMethod() {
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, null, null, null, 3))
                     .willReturn(List.of());
-            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
 
             verify(postRepository).findPostsByContentIdPopular(CONTENT_ID, null, null, null, 3);
             verify(postRepository, never()).findPostsByContentIdLatest(any(), any(), any(), anyInt());
+            verifyNoInteractions(postImageRepository);
         }
 
         @Test
@@ -75,12 +75,12 @@ class PostFeedServiceTest {
         void latestSortCallsLatestRepositoryMethod() {
             given(postRepository.findPostsByContentIdLatest(CONTENT_ID, null, null, 3))
                     .willReturn(List.of());
-            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             postFeedService.getFeed(CONTENT_ID, FeedSort.LATEST, null, 2);
 
             verify(postRepository).findPostsByContentIdLatest(CONTENT_ID, null, null, 3);
             verify(postRepository, never()).findPostsByContentIdPopular(any(), any(), any(), any(), anyInt());
+            verifyNoInteractions(postImageRepository);
         }
 
         @Test
@@ -88,7 +88,6 @@ class PostFeedServiceTest {
         void requestsOneMoreThanRequestedSize() {
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, null, null, null, 21))
                     .willReturn(List.of());
-            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 20);
 
@@ -150,7 +149,6 @@ class PostFeedServiceTest {
         void returnsEmptyResponseWhenNoPosts() {
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, null, null, null, 3))
                     .willReturn(List.of());
-            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             CursorPageResponse<PostFeedItemResponse> response =
                     postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
@@ -158,6 +156,7 @@ class PostFeedServiceTest {
             assertThat(response.getContent()).isEmpty();
             assertThat(response.isHasNext()).isFalse();
             assertThat(response.getNextCursor()).isNull();
+            verifyNoInteractions(postImageRepository);
         }
 
         @Test
@@ -166,7 +165,6 @@ class PostFeedServiceTest {
             FeedCursor cursor = new FeedCursor(15, Instant.ofEpochMilli(5_000), 42L);
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, 15, Instant.ofEpochMilli(5_000), 42L, 3))
                     .willReturn(List.of());
-            given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, cursor.encode(), 2);
 

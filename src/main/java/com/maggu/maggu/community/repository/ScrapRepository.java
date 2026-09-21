@@ -6,6 +6,7 @@ import com.maggu.maggu.community.entity.Scrap;
 import com.maggu.maggu.user.entity.AppUser;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -17,7 +18,8 @@ public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
     Optional<Scrap> findByUserAndPost(AppUser user, Post post);
 
-    Page<Scrap> findByUserAndFolderOrderByCreatedAtDesc(AppUser user, Folder folder, Pageable pageable);
+    @EntityGraph(attributePaths = {"post", "post.user"})
+    Page<Scrap> findByUserAndFolderAndPostDeletedFalseOrderByCreatedAtDesc(AppUser user, Folder folder, Pageable pageable);
 
     // 상세/피드 응답에서 "내가 스크랩했는지" 표시용
     List<Scrap> findByUserAndPostIn(AppUser user, List<Post> posts);

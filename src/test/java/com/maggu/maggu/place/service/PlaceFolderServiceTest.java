@@ -56,19 +56,26 @@ class PlaceFolderServiceTest {
             assertThat(result).extracting(PlaceFolderResponse::name).containsExactly("내 장소", "가보고 싶은 곳");
             assertThat(result).extracting(PlaceFolderResponse::icon).containsExactly("❤️", "✈️");
             assertThat(result).extracting(PlaceFolderResponse::isDefault).containsExactly(true, false);
+            verify(placeFolderRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("폴더가 없으면 빈 리스트를 반환한다")
-        void returnsEmptyListWhenNoFolders() {
+        @DisplayName("기본 폴더가 없으면 목록 조회 때 기본 폴더를 만들고 다시 조회한다")
+        void createsDefaultFolderWhenMissing() {
             AppUser user = appUser("나그네");
+            PlaceFolder defaultFolder = placeFolder(1L, user, "내 장소", "❤️", true);
             given(placeFolderRepository.findAllByUserOrderByIsDefaultDescCreatedAtAsc(user))
-                    .willReturn(List.of());
+                    .willReturn(List.of())
+                    .willReturn(List.of(defaultFolder));
+            given(placeFolderRepository.save(any(PlaceFolder.class))).willReturn(defaultFolder);
 
             List<PlaceFolderResponse> result = placeFolderService.getPlaceFolders(user);
 
-            assertThat(result).isEmpty();
+            assertThat(result).extracting(PlaceFolderResponse::placeFolderId).containsExactly(1L);
+            assertThat(result.get(0).isDefault()).isTrue();
+            verify(placeFolderRepository).save(any(PlaceFolder.class));
         }
+
     }
 
     @Nested

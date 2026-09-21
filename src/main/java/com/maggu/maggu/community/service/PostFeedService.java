@@ -54,6 +54,13 @@ public class PostFeedService {
 
         CursorPageResponse<Post> postCursorPageResponse = CursorPageResponse.of(posts, size, post -> FeedCursor.from(post).encode());
 
+        if (posts.isEmpty()) {
+            return postCursorPageResponse.map(post -> PostFeedItemResponse.builder()
+                    .postId(post.getId())
+                    .imageUrl(null)
+                    .build());
+        }
+
         Map<Long, String> thumbnailByPostId = postImageRepository.findByPostInOrderBySortOrderAsc(posts).stream()
                 .collect(Collectors.toMap(
                         image -> image.getPost().getId(),
