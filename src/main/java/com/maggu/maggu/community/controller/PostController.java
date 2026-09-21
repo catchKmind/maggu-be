@@ -38,7 +38,7 @@ public class PostController {
     private static final int MAX_FEED_SIZE = 100;
 
     @PostMapping
-    @Operation(summary = "게시글 작성", description = "사진 0~4장, 본문 500자, 사진이 있으면 위치 정보 필수")
+    @Operation(summary = "게시글 작성", description = "사진 0~4장, 본문 500자, 사진이 있으면 위도/경도 필수. 사진 없이 본문만 올릴 때는 위치 필드를 비운다.")
     public PostCreateResponse createPost(
             @CurrentUser AppUser user,
             @Valid @RequestBody PostCreateRequest request
@@ -74,7 +74,7 @@ public class PostController {
     @Operation(summary = "게시글 상세 조회")
     public PostDetailResponse getDetail(
             @CurrentUser AppUser user,
-            @PathVariable Long postId
+            @Parameter(description = "게시글 ID", example = "1") @PathVariable Long postId
     ) {
         return queryService.getDetail(postId, user);
     }
@@ -83,14 +83,14 @@ public class PostController {
     @Operation(summary = "게시글 삭제", description = "작성자 본인만 삭제 가능")
     public PostDeleteResponse deletePost(
             @CurrentUser AppUser user,
-            @PathVariable Long postId
+            @Parameter(description = "게시글 ID", example = "1") @PathVariable Long postId
     ) {
         return commandService.deletePost(user, postId);
     }
 
     @GetMapping("/{postId}/share")
     @Operation(summary = "게시글 공유 링크 조회")
-    public PostShareResponse share(@PathVariable Long postId) {
+    public PostShareResponse share(@Parameter(description = "게시글 ID", example = "1") @PathVariable Long postId) {
         return queryService.getShareLink(postId);
     }
 

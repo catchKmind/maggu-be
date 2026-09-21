@@ -24,9 +24,13 @@ public class PlaceFolderService {
 
     private final PlaceFolderRepository placeFolderRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PlaceFolderResponse> getPlaceFolders(AppUser user) {
         List<PlaceFolder> folders = placeFolderRepository.findAllByUserOrderByIsDefaultDescCreatedAtAsc(user);
+        if (folders.stream().noneMatch(PlaceFolder::isDefault)) {
+            createDefaultPlaceFolder(user);
+            folders = placeFolderRepository.findAllByUserOrderByIsDefaultDescCreatedAtAsc(user);
+        }
 
         return folders.stream()
                 .map(f -> PlaceFolderResponse.builder()

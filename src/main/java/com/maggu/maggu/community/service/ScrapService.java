@@ -17,6 +17,7 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.post.repository.PostRepository;
 import com.maggu.maggu.user.entity.AppUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,8 +36,8 @@ public class ScrapService {
     private final FolderRepository folderRepository;
     private final ScrapRepository scrapRepository;
     private final PostRepository postRepository;
+    private final PostQueryService postQueryService;
 
-    // 회원가입 시 호출하여 기본 폴더 1개를 만들어 둔다(AuthController/가입 로직에서 호출 필요)
     @Transactional
     public Folder createDefaultFolder(AppUser user) {
         return folderRepository.save(Folder.builder()
@@ -63,7 +64,9 @@ public class ScrapService {
                 .build();
     }
 
+    @Transactional
     public List<FolderResponse> getFolders(AppUser user) {
+        ensureDefaultFolder(user);
         return folderRepository.findByUserOrderByIsDefaultDescCreatedAtAsc(user).stream()
                 .map(this::toFolderResponse)
                 .toList();
@@ -71,16 +74,20 @@ public class ScrapService {
 
     @Transactional
     public ScrapResponse scrap(AppUser user, ScrapCreateRequest request) {
-        Post post = postRepository.findByIdAndDeletedFalse(request.getPostId())
+        Post post = postRepository.findByIdAndDeletedFalse(request.postId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (scrapRepository.existsByUserAndPost(user, post)) {
             throw new BusinessException(ErrorCode.SCRAP_DUPLICATE);
         }
 
-        Folder folder = resolveFolder(user, request.getFolderId());
+        Folder folder = resolveFolder(user, request.folderId());
 
-        scrapRepository.save(Scrap.builder().user(user).post(post).folder(folder).build());
+        try {
+            scrapRepository.saveAndFlush(Scrap.builder().user(user).post(post).folder(folder).build());
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.SCRAP_DUPLICATE);
+        }
         postRepository.incrementScrapCount(post.getId());
 
         return ScrapResponse.builder()
@@ -92,7 +99,7 @@ public class ScrapService {
 
     @Transactional
     public ScrapResponse unscrap(AppUser user, Long postId) {
-        Post post = postRepository.findByIdAndDeletedFalse(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         Scrap scrap = scrapRepository.findByUserAndPost(user, post)
@@ -109,7 +116,7 @@ public class ScrapService {
 
     @Transactional
     public ScrapResponse moveFolder(AppUser user, Long postId, Long targetFolderId) {
-        Post post = postRepository.findByIdAndDeletedFalse(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         Scrap scrap = scrapRepository.findByUserAndPost(user, post)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SCRAP_NOT_FOUND));
@@ -130,14 +137,13 @@ public class ScrapService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.FOLDER_NOT_FOUND));
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Scrap> scraps = scrapRepository.findByUserAndFolderOrderByCreatedAtDesc(user, folder, pageable);
-        return PageResponse.from(scraps.map(scrap -> toSummaryResponse(scrap.getPost())));
+        Page<Scrap> scraps = scrapRepository.findByUserAndFolderAndPostDeletedFalseOrderByCreatedAtDesc(user, folder, pageable);
+        return postQueryService.toSummaryPageResponse(scraps.map(Scrap::getPost), user);
     }
 
     private Folder resolveFolder(AppUser user, Long folderId) {
-        if (folderId == null) {
-            return folderRepository.findByUserAndIsDefaultTrue(user)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.FOLDER_NOT_FOUND));
+        if (folderId == null || folderId <= 0) {
+            return ensureDefaultFolder(user);
         }
         Folder folder = folderRepository.findById(folderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FOLDER_NOT_FOUND));
@@ -147,26 +153,16 @@ public class ScrapService {
         return folder;
     }
 
+    private Folder ensureDefaultFolder(AppUser user) {
+        return folderRepository.findByUserAndIsDefaultTrue(user)
+                .orElseGet(() -> createDefaultFolder(user));
+    }
+
     private FolderResponse toFolderResponse(Folder folder) {
         return FolderResponse.builder()
                 .folderId(folder.getId())
                 .name(folder.getName())
                 .isDefault(folder.isDefault())
-                .build();
-    }
-
-    // 스크랩 폴더 목록에서는 댓글 수/스크랩 여부 등 부가 정보 없이 게시글 요약만 필요해 최소 필드만 채운다
-    private PostSummaryResponse toSummaryResponse(Post post) {
-        return PostSummaryResponse.builder()
-                .postId(post.getId())
-                .slug(post.getSlug())
-                .writerNickname(post.getUser() != null ? post.getUser().getNickname() : "탈퇴한 회원")
-                .content(post.getContent())
-                .placeName(post.getPlaceName())
-                .category(post.getCategory())
-                .scrapCount(post.getScrapCount())
-                .scrappedByMe(true)
-                .createdAt(post.getCreatedAt())
                 .build();
     }
 }

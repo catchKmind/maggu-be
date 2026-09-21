@@ -8,8 +8,11 @@ public enum FeedSort {
     LATEST;
 
     public static FeedSort from(String value) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         try {
-            return FeedSort.valueOf(value.toUpperCase());
+            return FeedSort.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }

@@ -102,6 +102,10 @@ public class PostQueryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
     }
 
+    public PageResponse<PostSummaryResponse> toSummaryPageResponse(Page<Post> posts, AppUser viewer) {
+        return PageResponse.from(toSummaryPage(posts, viewer));
+    }
+
     private Page<PostSummaryResponse> toSummaryPage(Page<Post> posts, AppUser viewer) {
         List<Post> content = posts.getContent();
         if (content.isEmpty()) {

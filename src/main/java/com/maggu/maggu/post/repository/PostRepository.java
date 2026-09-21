@@ -67,11 +67,11 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             """)
     List<String> findDistinctPlaceNamesByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Post p SET p.scrapCount = p.scrapCount + 1 WHERE p.id = :postId")
     void incrementScrapCount(@Param("postId") Long postId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Post p SET p.scrapCount = p.scrapCount - 1 WHERE p.id = :postId AND p.scrapCount > 0")
     void decrementScrapCount(@Param("postId") Long postId);
 
