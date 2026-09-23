@@ -1,5 +1,6 @@
 package com.maggu.maggu.global.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
@@ -12,17 +13,28 @@ import org.springframework.web.client.RestClient;
 public class TourismApiConfig {
 
     @Bean
-    public RestClient tourismApiRestClient(TourismApiProperties properties) {
+    @Qualifier("korTourApiRestClient")
+    public RestClient korTourApiRestClient(TourismApiProperties properties) {
+        return buildClient(properties.baseUrl(), properties);
+    }
 
-        // 타임아웃 설정
+    @Bean
+    @Qualifier("engTourApiRestClient")
+    public RestClient engTourApiRestClient(TourismApiProperties properties) {
+        return buildClient(properties.engBaseUrl(), properties);
+    }
+
+    public RestClient tourismApiRestClient(TourismApiProperties properties) {
+        return korTourApiRestClient(properties);
+    }
+
+    private RestClient buildClient(String baseUrl, TourismApiProperties properties) {
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
                 .withConnectTimeout(properties.connectTimeout())
                 .withReadTimeout(properties.readTimeout());
 
-        // TODO: 재시도 정책, 서킷 브레이커, 로깅 추가
-
         return RestClient.builder()
-                .baseUrl(properties.baseUrl())
+                .baseUrl(baseUrl)
                 .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
                 .build();
     }

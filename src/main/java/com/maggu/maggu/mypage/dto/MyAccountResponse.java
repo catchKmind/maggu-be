@@ -1,5 +1,6 @@
 package com.maggu.maggu.mypage.dto;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.user.entity.AppUser;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -22,11 +23,15 @@ public class MyAccountResponse {
     @Schema(description = "닉네임", example = "행복한사자123")
     private String nickname;
 
+    @Schema(description = "앱 언어", example = "KO")
+    private AppLocale locale;
+
     public static MyAccountResponse from(AppUser user) {
         return new MyAccountResponse(
                 user.getProvider(),
                 user.getEmail(),
-                user.getNickname()
+                user.getNickname(),
+                user.getLocale()
         );
     }
 }

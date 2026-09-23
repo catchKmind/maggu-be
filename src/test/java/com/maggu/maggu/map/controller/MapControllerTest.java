@@ -1,7 +1,9 @@
 package com.maggu.maggu.map.controller;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.i18n.RequestLocaleResolver;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.dto.MapGeometry;
 import com.maggu.maggu.map.dto.MapPostFeature;
@@ -22,6 +24,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,6 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // 이 컨트롤러 테스트 범위(HTTP 계층)와 무관한 시큐리티 필터는 아예 스캔 대상에서 제외한다.
 @WebMvcTest(controllers = MapController.class,
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class))
+@Import(RequestLocaleResolver.class)
 @AutoConfigureMockMvc(addFilters = false)
 class MapControllerTest {
 
@@ -139,7 +143,7 @@ class MapControllerTest {
             MapSpotFeature feature = MapSpotFeature.of(
                     MapGeometry.of(127.05, 37.55),
                     new TourSpotProperties("126234", ContentType.TOURIST_ATTRACTION, "남산타워", true));
-            given(mapService.getMapSpots(37.4, 126.8, 37.7, 127.2))
+            given(mapService.getMapSpots(37.4, 126.8, 37.7, 127.2, AppLocale.KO))
                     .willReturn(MapSpotsResponse.of(List.of(feature)));
 
             mockMvc.perform(get("/api/v1/map/spots")
@@ -164,6 +168,23 @@ class MapControllerTest {
 
             verifyNoInteractions(mapService);
         }
+
+        @Test
+        @DisplayName("lang=EN이면 서비스에 EN locale을 전달한다")
+        void passesEnglishLocaleToService() throws Exception {
+            given(mapService.getMapSpots(37.4, 126.8, 37.7, 127.2, AppLocale.EN))
+                    .willReturn(MapSpotsResponse.of(List.of()));
+
+            mockMvc.perform(get("/api/v1/map/spots")
+                            .param("minLat", "37.4")
+                            .param("minLng", "126.8")
+                            .param("maxLat", "37.7")
+                            .param("maxLng", "127.2")
+                            .param("lang", "EN"))
+                    .andExpect(status().isOk());
+
+            verify(mapService).getMapSpots(37.4, 126.8, 37.7, 127.2, AppLocale.EN);
+        }
     }
 
     @Nested
@@ -177,7 +198,7 @@ class MapControllerTest {
                     "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
                     "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
                     "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
-            given(mapService.getMapSpotDetail("126234")).willReturn(detail);
+            given(mapService.getMapSpotDetail("126234", AppLocale.KO)).willReturn(detail);
 
             mockMvc.perform(get("/api/v1/map/spots/{contentId}", "126234"))
                     .andExpect(status().isOk())
@@ -190,7 +211,7 @@ class MapControllerTest {
         @Test
         @DisplayName("존재하지 않는 contentId면 404를 반환한다")
         void returnsNotFoundWhenContentIdDoesNotExist() throws Exception {
-            given(mapService.getMapSpotDetail("999"))
+            given(mapService.getMapSpotDetail("999", AppLocale.KO))
                     .willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
 
             mockMvc.perform(get("/api/v1/map/spots/{contentId}", "999"))

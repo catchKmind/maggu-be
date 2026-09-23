@@ -1,5 +1,6 @@
 package com.maggu.maggu.user.service;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
@@ -58,6 +59,19 @@ class UserServiceTest {
             assertThat(result.getProviderUserId()).isEqualTo("google-uid");
             assertThat(result.getEmail()).isEqualTo("test@test.com");
             assertThat(result.getNickname()).isEqualTo("행복한사자123");
+            assertThat(result.getLocale()).isEqualTo(AppLocale.KO);
+        }
+
+        @Test
+        @DisplayName("locale을 지정하면 해당 언어로 유저를 생성한다")
+        void createUserWithLocale() {
+            given(userRepository.existsByNickname("윤시진")).willReturn(false);
+            given(userRepository.save(any(AppUser.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            AppUser result = userService.createUser(
+                    Provider.APPLE, "apple-uid", "apple@test.com", "윤시진", AppLocale.EN);
+
+            assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
         }
 
         @Test
@@ -211,7 +225,49 @@ class UserServiceTest {
             assertThat(result.getProvider()).isEqualTo(Provider.GOOGLE);
             assertThat(result.getEmail()).isEqualTo("test@test.com");
             assertThat(result.getNickname()).isEqualTo("행복한사자123");
+            assertThat(result.getLocale()).isEqualTo(AppLocale.KO);
             verifyNoInteractions(userRepository);
+        }
+    }
+
+    @Nested
+    @DisplayName("updateLocale")
+    class UpdateLocale {
+
+        @Test
+        @DisplayName("대상 유저가 없으면 예외를 던진다")
+        void throwsWhenUserNotFound() {
+            AppUser appUser = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "id", 1L);
+            given(userRepository.findById(1L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.updateLocale(appUser, AppLocale.EN))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ENTITY_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("locale을 변경하고 계정 응답에 반영한다")
+        void updatesLocale() {
+            AppUser appUser = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .locale(AppLocale.KO)
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "id", 1L);
+            given(userRepository.findById(1L)).willReturn(Optional.of(appUser));
+
+            MyAccountResponse result = userService.updateLocale(appUser, AppLocale.EN);
+
+            assertThat(appUser.getLocale()).isEqualTo(AppLocale.EN);
+            assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
         }
     }
 }

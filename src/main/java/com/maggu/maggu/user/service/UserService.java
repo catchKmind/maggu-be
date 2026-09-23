@@ -1,5 +1,6 @@
 package com.maggu.maggu.user.service;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
@@ -28,13 +29,28 @@ public class UserService {
 
     @Transactional
     public AppUser createUser(Provider provider, String providerUserId, String email, String preferredNickname) {
+        return createUser(provider, providerUserId, email, preferredNickname, AppLocale.KO);
+    }
+
+    @Transactional
+    public AppUser createUser(Provider provider, String providerUserId, String email, String preferredNickname,
+                              AppLocale locale) {
         AppUser appUser = AppUser.builder()
                 .provider(provider)
                 .providerUserId(providerUserId)
                 .email(email)
                 .nickname(resolveNickname(preferredNickname))
+                .locale(locale == null ? AppLocale.KO : locale)
                 .build();
         return userRepository.save(appUser);
+    }
+
+    @Transactional
+    public MyAccountResponse updateLocale(AppUser user, AppLocale locale) {
+        AppUser appUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
+        appUser.changeLocale(locale);
+        return MyAccountResponse.from(appUser);
     }
 
     @Transactional

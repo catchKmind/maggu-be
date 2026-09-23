@@ -22,7 +22,8 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "애플로그인하기", description = "Apple identity token을 검증하고 서비스 JWT를 발급한다.")
+    @Operation(summary = "애플로그인하기",
+            description = "Apple identity token을 검증하고 서비스 JWT를 발급한다. 신규 가입 시 locale(KO/EN)을 함께 보내면 저장되고, 없으면 KO.")
     @PostMapping("/login")
     public TokenResponse loginWithApple(@Valid @RequestBody AppleLoginReq request) {
         return authService.loginWithApple(request);

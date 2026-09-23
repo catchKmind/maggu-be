@@ -1,5 +1,6 @@
 package com.maggu.maggu.map.service;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.map.cache.OngoingFestivalCache;
@@ -63,7 +64,7 @@ class MapServiceTest {
         @DisplayName("bbox 안의 스팟을 GeoJSON FeatureCollection으로 변환해 반환한다")
         void getMapSpots() {
             TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "남산타워", 127.05, 37.55);
-            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+            given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
 
             MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
 
@@ -84,7 +85,7 @@ class MapServiceTest {
         @DisplayName("진행 중인 축제 contentId면 isOngoingEvent가 true다")
         void marksOngoingFestivalAsOngoingEvent() {
             TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "막꾸 축제", 127.05, 37.55);
-            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+            given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
             given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
 
             MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
@@ -95,17 +96,17 @@ class MapServiceTest {
         @Test
         @DisplayName("좌표는 캐시에 (경도, 위도, 경도, 위도) 순서로 전달한다")
         void passesLngLatInCorrectOrderToCache() {
-            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of());
+            given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of());
 
             mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
 
-            verify(spotCache).findInBbox(126.8, 37.4, 127.2, 37.7);
+            verify(spotCache).findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7);
         }
 
         @Test
         @DisplayName("bbox 안에 스팟이 없으면 features가 빈 리스트인 응답을 반환한다")
         void returnsEmptyFeaturesWhenNoSpotsInBbox() {
-            given(spotCache.findInBbox(126.8, 37.4, 127.2, 37.7)).willReturn(List.of());
+            given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of());
 
             MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
 
@@ -364,14 +365,14 @@ class MapServiceTest {
                     "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
                     "서울 용산구 남산공원길 105", List.of("https://img/a.jpg"),
                     "09:00~18:00", "매주 월요일", null, 127.05, 37.55);
-            given(tourApiClient.findSpotDetail("126234")).willReturn(detail);
+            given(tourApiClient.findSpotDetail("126234", AppLocale.KO)).willReturn(detail);
 
             MapSpotDetail response = mapService.getMapSpotDetail("126234");
 
             assertThat(response).isEqualTo(detail);
 
             ArgumentCaptor<TourSpot> captor = ArgumentCaptor.forClass(TourSpot.class);
-            verify(spotCache).put(captor.capture());
+            verify(spotCache).put(eq(AppLocale.KO), captor.capture());
 
             TourSpot cached = captor.getValue();
             assertThat(cached.contentId()).isEqualTo("126234");
@@ -384,7 +385,7 @@ class MapServiceTest {
         @Test
         @DisplayName("TourAPI 조회가 실패하면 예외를 그대로 던지고, 캐시에는 아무것도 반영하지 않는다")
         void doesNotUpsertCacheWhenTourApiFails() {
-            given(tourApiClient.findSpotDetail("999"))
+            given(tourApiClient.findSpotDetail("999", AppLocale.KO))
                     .willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
 
             assertThatThrownBy(() -> mapService.getMapSpotDetail("999"))

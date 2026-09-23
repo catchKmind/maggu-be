@@ -24,12 +24,14 @@ class TourismApiPropertiesTest {
         void bindsDurationPropertiesWithSecondsSuffix() {
             TourismApiProperties properties = bind(Map.of(
                     "tourism-api.base-url", "http://apis.data.go.kr/B551011/KorService2",
+                    "tourism-api.eng-base-url", "http://apis.data.go.kr/B551011/EngService2",
                     "tourism-api.service-key", "test-key",
                     "tourism-api.connect-timeout", "2s",
                     "tourism-api.read-timeout", "10s"
             ));
 
             assertThat(properties.baseUrl()).isEqualTo("http://apis.data.go.kr/B551011/KorService2");
+            assertThat(properties.engBaseUrl()).isEqualTo("http://apis.data.go.kr/B551011/EngService2");
             assertThat(properties.serviceKey()).isEqualTo("test-key");
             assertThat(properties.connectTimeout()).isEqualTo(Duration.ofSeconds(2));
             assertThat(properties.readTimeout()).isEqualTo(Duration.ofSeconds(10));
@@ -40,6 +42,7 @@ class TourismApiPropertiesTest {
         void bindsDurationPropertiesWithMillisSuffix() {
             TourismApiProperties properties = bind(Map.of(
                     "tourism-api.base-url", "http://apis.data.go.kr/B551011/KorService2",
+                    "tourism-api.eng-base-url", "http://apis.data.go.kr/B551011/EngService2",
                     "tourism-api.service-key", "test-key",
                     "tourism-api.connect-timeout", "500ms",
                     "tourism-api.read-timeout", "1500ms"
@@ -54,6 +57,7 @@ class TourismApiPropertiesTest {
         void bareNumberWithoutSuffixIsInterpretedAsMillis() {
             TourismApiProperties properties = bind(Map.of(
                     "tourism-api.base-url", "http://apis.data.go.kr/B551011/KorService2",
+                    "tourism-api.eng-base-url", "http://apis.data.go.kr/B551011/EngService2",
                     "tourism-api.service-key", "test-key",
                     "tourism-api.connect-timeout", "2000",
                     "tourism-api.read-timeout", "10000"
@@ -68,6 +72,7 @@ class TourismApiPropertiesTest {
         void throwsWhenValueIsNotAValidDuration() {
             MapConfigurationPropertySource source = new MapConfigurationPropertySource(Map.of(
                     "tourism-api.base-url", "http://apis.data.go.kr/B551011/KorService2",
+                    "tourism-api.eng-base-url", "http://apis.data.go.kr/B551011/EngService2",
                     "tourism-api.service-key", "test-key",
                     "tourism-api.connect-timeout", "not-a-duration",
                     "tourism-api.read-timeout", "10s"

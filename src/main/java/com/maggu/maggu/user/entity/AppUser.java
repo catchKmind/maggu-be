@@ -1,6 +1,7 @@
 package com.maggu.maggu.user.entity;
 
 import com.maggu.maggu.global.entity.BaseEntity;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -45,6 +46,10 @@ public class AppUser extends BaseEntity {
     @Column(nullable = false, length = 30)
     private String nickname;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private AppLocale locale = AppLocale.KO;
+
     /**
      * Apple authorization code를 교환해 얻은 refresh token.
      * authorization code는 수명이 짧아 저장하지 않고, revoke에 필요한 refresh token만 보관한다.
@@ -53,15 +58,24 @@ public class AppUser extends BaseEntity {
     private String appleRefreshToken;
 
     @Builder
-    public AppUser(Provider provider, String providerUserId, String email, String nickname) {
+    public AppUser(Provider provider, String providerUserId, String email, String nickname, AppLocale locale) {
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.email = email;
         this.nickname = nickname;
+        this.locale = locale == null ? AppLocale.KO : locale;
+    }
+
+    public AppLocale getLocale() {
+        return locale == null ? AppLocale.KO : locale;
     }
 
     public void changeNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void changeLocale(AppLocale locale) {
+        this.locale = locale == null ? AppLocale.KO : locale;
     }
 
     public void updateAppleRefreshToken(String appleRefreshToken) {

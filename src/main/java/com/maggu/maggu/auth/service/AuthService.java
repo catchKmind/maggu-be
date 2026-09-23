@@ -6,6 +6,7 @@ import com.maggu.maggu.auth.dto.AppleLoginReq;
 import com.maggu.maggu.auth.dto.TokenResponse;
 import com.maggu.maggu.auth.dto.WithdrawResponse;
 import com.maggu.maggu.community.service.ScrapService;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
@@ -49,7 +50,8 @@ public class AuthService {
         }
 
         AppUser user = userRepository.findByProviderAndProviderUserId(Provider.APPLE, appleUserId)
-                .orElseGet(() -> registerAppleUser(appleUserId, appleJwtValidator.getEmail(claims), request.fullName()));
+                .orElseGet(() -> registerAppleUser(
+                        appleUserId, appleJwtValidator.getEmail(claims), request.fullName(), request.locale()));
 
         syncAppleRefreshToken(user, request.authorizationCode());
 
@@ -83,13 +85,15 @@ public class AuthService {
         }
     }
 
-    private AppUser registerAppleUser(String appleUserId, String email, String fullName) {
+    private AppUser registerAppleUser(String appleUserId, String email, String fullName, AppLocale locale) {
         String resolvedEmail = StringUtils.hasText(email)
                 ? email
                 : appleUserId + "@privaterelay.appleid.com";
 
         try {
-            AppUser created = userService.createUser(Provider.APPLE, appleUserId, resolvedEmail, fullName);
+            AppUser created = userService.createUser(
+                    Provider.APPLE, appleUserId, resolvedEmail, fullName,
+                    locale == null ? AppLocale.KO : locale);
             scrapService.createDefaultFolder(created);
             placeFolderService.createDefaultPlaceFolder(created);
             userRepository.flush();
@@ -112,7 +116,7 @@ public class AuthService {
         String testName = "테스트유저";
 
         AppUser user = userRepository.findByProviderAndProviderUserId(Provider.APPLE, testAppleSub)
-                .orElseGet(() -> registerAppleUser(testAppleSub, testEmail, testName));
+                .orElseGet(() -> registerAppleUser(testAppleSub, testEmail, testName, AppLocale.KO));
 
         return issueTokens(user);
     }

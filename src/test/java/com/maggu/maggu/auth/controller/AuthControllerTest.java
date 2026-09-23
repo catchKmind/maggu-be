@@ -68,7 +68,7 @@ class AuthControllerTest {
             mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(
-                                    new AppleLoginReq("identity-token", "auth-code", "윤시진"))))
+                                    new AppleLoginReq("identity-token", "auth-code", "윤시진", null))))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.accessToken").value("access-token"))

@@ -2,6 +2,7 @@ package com.maggu.maggu.map.service;
 
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.ContentType;
@@ -29,18 +30,27 @@ public class MapService {
     private final OngoingFestivalCache ongoingFestivalCache;
 
     public MapSpotDetail getMapSpotDetail(String contentId) {
+        return getMapSpotDetail(contentId, AppLocale.KO);
+    }
 
-        MapSpotDetail mapSpotDetail = tourApiClient.findSpotDetail(contentId);
+    public MapSpotDetail getMapSpotDetail(String contentId, AppLocale locale) {
+        AppLocale resolved = resolveLocale(locale);
+        MapSpotDetail mapSpotDetail = tourApiClient.findSpotDetail(contentId, resolved);
 
-        tourSpotCache.put(toSpot(mapSpotDetail));
+        tourSpotCache.put(resolved, toSpot(mapSpotDetail));
 
         return mapSpotDetail;
     }
 
     public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng) {
+        return getMapSpots(minLat, minLng, maxLat, maxLng, AppLocale.KO);
+    }
+
+    public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng, AppLocale locale) {
         validateBbox(minLat, minLng, maxLat, maxLng);
 
-        List<TourSpot> tourSpots = tourSpotCache.findInBbox(minLng, minLat, maxLng, maxLat);
+        List<TourSpot> tourSpots = tourSpotCache.findInBbox(
+                resolveLocale(locale), minLng, minLat, maxLng, maxLat);
 
         List<MapSpotFeature> features = tourSpots.stream()
                 .map(this::toFeature)
@@ -139,6 +149,10 @@ public class MapService {
         if (minLat < -90 || maxLat > 90 || minLng < -180 || maxLng > 180) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private AppLocale resolveLocale(AppLocale locale) {
+        return locale == null ? AppLocale.KO : locale;
     }
 
     private TourSpot toSpot(MapSpotDetail mapSpotDetail) {

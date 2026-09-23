@@ -2,6 +2,7 @@ package com.maggu.maggu.map.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.map.client.ContentType;
 import com.maggu.maggu.map.client.TourSpot;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,6 +87,26 @@ class TourSpotCacheTest {
             List<TourSpot> result = tourSpotCache.findInBbox(126.8, 37.4, 127.2, 37.7);
 
             assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("locale isolation")
+    class LocaleIsolation {
+
+        @Test
+        @DisplayName("같은 contentId라도 KO/EN 캐시는 서로 섞이지 않는다")
+        void keepsLocalesSeparate() {
+            TourSpot korean = spot("1", "남산타워", 127.0, 37.5);
+            TourSpot english = spot("1", "N Seoul Tower", 127.0, 37.5);
+            tourSpotCache.putAll(AppLocale.KO, List.of(korean));
+            tourSpotCache.putAll(AppLocale.EN, List.of(english));
+
+            assertThat(tourSpotCache.findByKeyword(AppLocale.KO, "남산", 10)).containsExactly(korean);
+            assertThat(tourSpotCache.findByKeyword(AppLocale.EN, "N Seoul", 10)).containsExactly(english);
+            assertThat(tourSpotCache.findByKeyword(AppLocale.KO, "N Seoul", 10)).isEmpty();
+            assertThat(tourSpotCache.isEmpty(AppLocale.KO)).isFalse();
+            assertThat(tourSpotCache.isEmpty(AppLocale.EN)).isFalse();
         }
     }
 

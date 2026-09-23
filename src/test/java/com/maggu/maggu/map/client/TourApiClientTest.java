@@ -38,8 +38,8 @@ class TourApiClientTest {
         RestClient restClient = builder.build();
 
         TourismApiProperties properties =
-                new TourismApiProperties(BASE_URL, "test-service-key", Duration.ofSeconds(2), Duration.ofSeconds(2));
-        tourApiClient = new TourApiClient(restClient, properties, new ObjectMapper());
+                new TourismApiProperties(BASE_URL, BASE_URL, "test-service-key", Duration.ofSeconds(2), Duration.ofSeconds(2));
+        tourApiClient = new TourApiClient(restClient, restClient, properties, new ObjectMapper());
     }
 
     @Nested

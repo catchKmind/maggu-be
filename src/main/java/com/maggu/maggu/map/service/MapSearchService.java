@@ -8,6 +8,7 @@ import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.post.service.FeedCursor;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.TourSpot;
@@ -40,9 +41,14 @@ public class MapSearchService {
     private final MapService mapService;
 
     public List<AutocompleteCandidateResponse> getAutocompleteCandidates(String keyword) {
+        return getAutocompleteCandidates(keyword, AppLocale.KO);
+    }
+
+    public List<AutocompleteCandidateResponse> getAutocompleteCandidates(String keyword, AppLocale locale) {
         String normalizeKeyword = normalizeKeyword(keyword);
 
-        List<TourSpot> spots = tourSpotCache.findByKeyword(normalizeKeyword, AUTOCOMPLETE_MAX_RESULTS);
+        List<TourSpot> spots = tourSpotCache.findByKeyword(
+                resolveLocale(locale), normalizeKeyword, AUTOCOMPLETE_MAX_RESULTS);
 
         return spots.stream()
                 .map(spot ->
@@ -101,18 +107,23 @@ public class MapSearchService {
     }
 
     public List<MapSpotDetail> searchSpots(String keyword) {
+        return searchSpots(keyword, AppLocale.KO);
+    }
+
+    public List<MapSpotDetail> searchSpots(String keyword, AppLocale locale) {
         String normalizeKeyword = normalizeKeyword(keyword);
+        AppLocale resolved = resolveLocale(locale);
 
         List<String> contentIds = isPopularKeyword(normalizeKeyword)
                 ? postRepository.findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS)
-                : tourSpotCache.findByKeyword(normalizeKeyword, SPOTS_MAX_RESULTS).stream()
+                : tourSpotCache.findByKeyword(resolved, normalizeKeyword, SPOTS_MAX_RESULTS).stream()
                 .map(TourSpot::contentId)
                 .toList();
 
         return contentIds.stream()
                 .map(contentId -> {
                     try {
-                        return mapService.getMapSpotDetail(contentId);
+                        return mapService.getMapSpotDetail(contentId, resolved);
                     } catch (BusinessException e) {
                         if (e.getErrorCode() == ErrorCode.MAP_CONTENT_NOT_FOUND) {
                             return null;
@@ -122,6 +133,10 @@ public class MapSearchService {
                 })
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private AppLocale resolveLocale(AppLocale locale) {
+        return locale == null ? AppLocale.KO : locale;
     }
 
     private String normalizeKeyword(String keyword) {

@@ -4,11 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.map.dto.MapSpotDetail;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -25,7 +26,6 @@ import java.util.function.Supplier;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class TourApiClient {
 
     private static final String LOCATION_BASED_LIST_PATH = "/locationBasedList2";
@@ -46,9 +46,22 @@ public class TourApiClient {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private final RestClient tourApiRestClient;
+    private final RestClient korTourApiRestClient;
+    private final RestClient engTourApiRestClient;
     private final TourismApiProperties properties;
     private final ObjectMapper objectMapper;
+
+    public TourApiClient(
+            @Qualifier("korTourApiRestClient") RestClient korTourApiRestClient,
+            @Qualifier("engTourApiRestClient") RestClient engTourApiRestClient,
+            TourismApiProperties properties,
+            ObjectMapper objectMapper
+    ) {
+        this.korTourApiRestClient = korTourApiRestClient;
+        this.engTourApiRestClient = engTourApiRestClient;
+        this.properties = properties;
+        this.objectMapper = objectMapper;
+    }
 
     public List<FestivalSpot> searchFestival(TourServiceArea area) {
         String today = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DATE_FORMATTER);
@@ -59,8 +72,15 @@ public class TourApiClient {
     }
 
     public MapSpotDetail findSpotDetail(String contentId) {
-        CompletableFuture<String> detailCommonFuture = CompletableFuture.supplyAsync(() -> requestDetailCommonRawBody(contentId));
-        CompletableFuture<String> imageFuture = CompletableFuture.supplyAsync(() -> requestDetailImageRawBody(contentId))
+        return findSpotDetail(contentId, AppLocale.KO);
+    }
+
+    public MapSpotDetail findSpotDetail(String contentId, AppLocale locale) {
+        AppLocale resolved = resolveLocale(locale);
+        CompletableFuture<String> detailCommonFuture = CompletableFuture.supplyAsync(
+                () -> requestDetailCommonRawBody(contentId, resolved));
+        CompletableFuture<String> imageFuture = CompletableFuture.supplyAsync(
+                        () -> requestDetailImageRawBody(contentId, resolved))
                 .exceptionally(throwable -> {
                     log.warn("이미지 조회 실패, 빈 이미지로 대체: contentId={}", contentId, throwable);
                     return null;
@@ -69,7 +89,8 @@ public class TourApiClient {
             String contentTypeId = extractContentTypeId(detailCommonRawBody);
 
             if (contentTypeId.equals("12") || contentTypeId.equals("15") || contentTypeId.equals("39")) {
-                return CompletableFuture.supplyAsync(() -> requestDetailIntroRawBody(contentId, contentTypeId))
+                return CompletableFuture.supplyAsync(
+                                () -> requestDetailIntroRawBody(contentId, contentTypeId, resolved))
                         .exceptionally(throwable -> {
                             log.warn("영업 관련 정보 조회 실패, null로 대체: contentId={}", contentId, throwable);
                             return null;
@@ -97,13 +118,17 @@ public class TourApiClient {
     }
 
     public List<TourSpot> findAllByArea(TourServiceArea area) {
-        String rawBody = requestAreaBasedListRawBody(area);
+        return findAllByArea(area, AppLocale.KO);
+    }
+
+    public List<TourSpot> findAllByArea(TourServiceArea area, AppLocale locale) {
+        String rawBody = requestAreaBasedListRawBody(area, resolveLocale(locale));
 
         return parseAreaSpots(rawBody);
     }
 
     public Optional<ContentType> findContentType(String contentId) {
-        String rawBody = requestDetailCommonRawBody(contentId);
+        String rawBody = requestDetailCommonRawBody(contentId, AppLocale.KO);
 
         return parseContentType(rawBody);
     }
@@ -115,7 +140,8 @@ public class TourApiClient {
     public List<TourSpot> findByLocation(
             double mapX, double mapY, int radiusMeters, Integer contentTypeId, int numOfRows) {
 
-        String rawBody = requestLocationBasedListRawBody(mapX, mapY, radiusMeters, contentTypeId, numOfRows);
+        String rawBody = requestLocationBasedListRawBody(
+                mapX, mapY, radiusMeters, contentTypeId, numOfRows, AppLocale.KO);
 
         return parseSpots(rawBody);
     }
@@ -148,9 +174,17 @@ public class TourApiClient {
         }
     }
 
+    private RestClient restClient(AppLocale locale) {
+        return locale == AppLocale.EN ? engTourApiRestClient : korTourApiRestClient;
+    }
+
+    private AppLocale resolveLocale(AppLocale locale) {
+        return locale == null ? AppLocale.KO : locale;
+    }
+
     // 지역기반 관광정보 조회 API 호출
-    private String requestAreaBasedListRawBody(TourServiceArea area) {
-        return executeRequest(() -> tourApiRestClient.get()
+    private String requestAreaBasedListRawBody(TourServiceArea area, AppLocale locale) {
+        return executeRequest(() -> restClient(locale).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(AREA_BASED_LIST_PATH)
                             .queryParam("lDongRegnCd", area.getLDongRegnCd())
@@ -167,8 +201,8 @@ public class TourApiClient {
     }
 
     // 공통 정보 조회 API 호출
-    private String requestDetailCommonRawBody(String contentId) {
-        return executeRequest(() -> tourApiRestClient.get()
+    private String requestDetailCommonRawBody(String contentId, AppLocale locale) {
+        return executeRequest(() -> restClient(locale).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(DETAIL_COMMON_PATH)
                             .queryParam("contentId", contentId)
@@ -184,8 +218,9 @@ public class TourApiClient {
     }
 
     // 위치기반 관광정보 조회 API 호출
-    private String requestLocationBasedListRawBody(double mapX, double mapY, int radiusMeters, Integer contentTypeId, int numOfRows) {
-        return executeRequest(() -> tourApiRestClient.get()
+    private String requestLocationBasedListRawBody(double mapX, double mapY, int radiusMeters, Integer contentTypeId,
+                                                   int numOfRows, AppLocale locale) {
+        return executeRequest(() -> restClient(locale).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(LOCATION_BASED_LIST_PATH)
                             .queryParam("arrange", ARRANGE_BY_DISTANCE)
@@ -209,8 +244,8 @@ public class TourApiClient {
     }
 
     // 이미지 정보 조회 API 호출
-    private String requestDetailImageRawBody(String contentId) {
-        return executeRequest(() -> tourApiRestClient.get()
+    private String requestDetailImageRawBody(String contentId, AppLocale locale) {
+        return executeRequest(() -> restClient(locale).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(DETAIL_IMAGE_PATH)
                             .queryParam("contentId", contentId)
@@ -225,8 +260,8 @@ public class TourApiClient {
     }
 
     // 영업 시간 조회 API 호출
-    private String requestDetailIntroRawBody(String contentId, String contentTypeId) {
-        return executeRequest(() -> tourApiRestClient.get()
+    private String requestDetailIntroRawBody(String contentId, String contentTypeId, AppLocale locale) {
+        return executeRequest(() -> restClient(locale).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(DETAIL_INTRO_PATH)
                             .queryParam("contentId", contentId)
@@ -242,7 +277,7 @@ public class TourApiClient {
 
     // 행사 정보 조회 API 호출
     private String requestSearchFestival(TourServiceArea area, String today) {
-        return executeRequest(() -> tourApiRestClient.get()
+        return executeRequest(() -> restClient(AppLocale.KO).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(SEARCH_FESTIVAL_PATH)
                             .queryParam("eventStartDate", today)

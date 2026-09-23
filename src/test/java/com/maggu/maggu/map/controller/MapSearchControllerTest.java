@@ -1,7 +1,9 @@
 package com.maggu.maggu.map.controller;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.i18n.RequestLocaleResolver;
 import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.global.security.jwt.JwtAuthenticationFilter;
 import com.maggu.maggu.map.client.ContentType;
@@ -18,6 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = MapSearchController.class,
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class))
+@Import(RequestLocaleResolver.class)
 @AutoConfigureMockMvc(addFilters = false)
 class MapSearchControllerTest {
 
@@ -53,7 +57,7 @@ class MapSearchControllerTest {
                     .contentType(ContentType.TOURIST_ATTRACTION)
                     .title("해운대해수욕장")
                     .build();
-            given(mapSearchService.getAutocompleteCandidates("해운대")).willReturn(List.of(candidate));
+            given(mapSearchService.getAutocompleteCandidates("해운대", AppLocale.KO)).willReturn(List.of(candidate));
 
             mockMvc.perform(get("/api/v1/map/search/autocomplete")
                             .param("keyword", "해운대"))
@@ -177,7 +181,7 @@ class MapSearchControllerTest {
                     "126234", ContentType.TOURIST_ATTRACTION, "051-749-4062", "해운대해수욕장",
                     "부산 해운대구 해운대해변로 264", List.of("https://img/a.jpg"),
                     "09:00~18:00", null, null, 129.16, 35.16);
-            given(mapSearchService.searchSpots("해운대")).willReturn(List.of(detail));
+            given(mapSearchService.searchSpots("해운대", AppLocale.KO)).willReturn(List.of(detail));
 
             mockMvc.perform(get("/api/v1/map/search/spots")
                             .param("keyword", "해운대"))
@@ -199,7 +203,7 @@ class MapSearchControllerTest {
         @Test
         @DisplayName("서비스에서 BusinessException이 발생하면 해당 에러코드로 응답한다")
         void returnsErrorBodyWhenServiceThrowsBusinessException() throws Exception {
-            given(mapSearchService.searchSpots("해운대"))
+            given(mapSearchService.searchSpots("해운대", AppLocale.KO))
                     .willThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
             mockMvc.perform(get("/api/v1/map/search/spots")
