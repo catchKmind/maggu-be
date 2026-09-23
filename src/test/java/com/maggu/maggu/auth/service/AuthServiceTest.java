@@ -6,6 +6,7 @@ import com.maggu.maggu.auth.dto.AppleLoginReq;
 import com.maggu.maggu.auth.dto.TokenResponse;
 import com.maggu.maggu.auth.dto.WithdrawResponse;
 import com.maggu.maggu.community.service.ScrapService;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
@@ -80,13 +81,13 @@ class AuthServiceTest {
             stubTokens();
 
             TokenResponse response = authService.loginWithApple(
-                    new AppleLoginReq("identity-token", "auth-code", "무시되는이름"));
+                    new AppleLoginReq("identity-token", "auth-code", "무시되는이름", null));
 
             assertThat(response.accessToken()).isEqualTo("access-token");
             assertThat(response.refreshToken()).isEqualTo("refresh-token");
             assertThat(response.tokenType()).isEqualTo("Bearer");
             assertThat(response.expiresIn()).isEqualTo(3600L);
-            verify(userService, never()).createUser(any(), any(), any(), any());
+            verify(userService, never()).createUser(any(), any(), any(), any(), any());
             verify(scrapService, never()).createDefaultFolder(any());
             verify(placeFolderService, never()).createDefaultPlaceFolder(any());
             verify(appleAuthService).syncRefreshToken(any(AppUser.class), eq("auth-code"));
@@ -102,19 +103,39 @@ class AuthServiceTest {
             given(userRepository.findByProviderAndProviderUserId(Provider.APPLE, "apple-user-1"))
                     .willReturn(Optional.empty());
             AppUser created = appUser(11L, "user@test.com", "윤시진");
-            given(userService.createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진"))
+            given(userService.createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진", AppLocale.KO))
                     .willReturn(created);
             stubTokens();
 
             TokenResponse response = authService.loginWithApple(
-                    new AppleLoginReq("identity-token", null, "윤시진"));
+                    new AppleLoginReq("identity-token", null, "윤시진", null));
 
             assertThat(response.accessToken()).isEqualTo("access-token");
-            verify(userService).createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진");
+            verify(userService).createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진", AppLocale.KO);
             verify(scrapService).createDefaultFolder(created);
             verify(placeFolderService).createDefaultPlaceFolder(created);
             verify(userRepository).flush();
             verify(appleAuthService, never()).syncRefreshToken(any(), any());
+        }
+
+        @Test
+        @DisplayName("신규 가입 시 locale=EN이면 그대로 저장한다")
+        void registersNewUserWithEnglishLocale() {
+            Map<String, Object> claims = Map.of("sub", "apple-user-1", "email", "user@test.com");
+            given(appleJwtValidator.validate("identity-token")).willReturn(claims);
+            given(appleJwtValidator.getSubject(claims)).willReturn("apple-user-1");
+            given(appleJwtValidator.getEmail(claims)).willReturn("user@test.com");
+            given(userRepository.findByProviderAndProviderUserId(Provider.APPLE, "apple-user-1"))
+                    .willReturn(Optional.empty());
+            AppUser created = appUser(11L, "user@test.com", "윤시진");
+            given(userService.createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진", AppLocale.EN))
+                    .willReturn(created);
+            stubTokens();
+
+            authService.loginWithApple(
+                    new AppleLoginReq("identity-token", null, "윤시진", AppLocale.EN));
+
+            verify(userService).createUser(Provider.APPLE, "apple-user-1", "user@test.com", "윤시진", AppLocale.EN);
         }
 
         @Test
@@ -128,14 +149,14 @@ class AuthServiceTest {
                     .willReturn(Optional.empty());
             AppUser created = appUser(12L, "apple-user-1@privaterelay.appleid.com", "생성된닉네임");
             given(userService.createUser(eq(Provider.APPLE), eq("apple-user-1"),
-                    eq("apple-user-1@privaterelay.appleid.com"), eq(null)))
+                    eq("apple-user-1@privaterelay.appleid.com"), eq(null), eq(AppLocale.KO)))
                     .willReturn(created);
             stubTokens();
 
-            authService.loginWithApple(new AppleLoginReq("identity-token", null, null));
+            authService.loginWithApple(new AppleLoginReq("identity-token", null, null, null));
 
             verify(userService).createUser(Provider.APPLE, "apple-user-1",
-                    "apple-user-1@privaterelay.appleid.com", null);
+                    "apple-user-1@privaterelay.appleid.com", null, AppLocale.KO);
             verify(scrapService).createDefaultFolder(created);
             verify(placeFolderService).createDefaultPlaceFolder(created);
         }
@@ -154,7 +175,7 @@ class AuthServiceTest {
             stubTokens();
 
             TokenResponse response = authService.loginWithApple(
-                    new AppleLoginReq("identity-token", "auth-code", null));
+                    new AppleLoginReq("identity-token", "auth-code", null, null));
 
             assertThat(response.accessToken()).isEqualTo("access-token");
         }

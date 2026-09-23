@@ -59,7 +59,7 @@ class TourismApiConfigTest {
 
     private RestClient buildClient(int port, Duration readTimeout) {
         TourismApiProperties properties = new TourismApiProperties(
-                "http://localhost:" + port, "test-key", Duration.ofSeconds(2), readTimeout);
+                "http://localhost:" + port, "http://localhost:" + port, "test-key", Duration.ofSeconds(2), readTimeout);
         return config.tourismApiRestClient(properties);
     }
 

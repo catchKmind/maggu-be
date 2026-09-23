@@ -3,6 +3,7 @@ package com.maggu.maggu.map.service;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.response.CursorPageResponse;
@@ -68,7 +69,7 @@ class MapSearchServiceTest {
         @DisplayName("캐시에서 매칭된 스팟을 자동완성 후보 응답으로 변환해 반환한다")
         void returnsCandidatesConvertedFromMatchedSpots() {
             TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "해운대해수욕장", 129.16, 35.16);
-            given(tourSpotCache.findByKeyword(KEYWORD, AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of(spot));
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of(spot));
 
             List<AutocompleteCandidateResponse> result = mapSearchService.getAutocompleteCandidates(KEYWORD);
 
@@ -82,7 +83,7 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("캐시에 매칭되는 스팟이 없으면 빈 리스트를 반환한다")
         void returnsEmptyListWhenNoSpotsMatch() {
-            given(tourSpotCache.findByKeyword("존재하지않는키워드", AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of());
+            given(tourSpotCache.findByKeyword(AppLocale.KO, "존재하지않는키워드", AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of());
 
             List<AutocompleteCandidateResponse> result = mapSearchService.getAutocompleteCandidates("존재하지않는키워드");
 
@@ -92,11 +93,11 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("자동완성 최대 개수(6개)로 캐시를 조회한다")
         void queriesCacheWithAutocompleteMaxResults() {
-            given(tourSpotCache.findByKeyword(KEYWORD, AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of());
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of());
 
             mapSearchService.getAutocompleteCandidates(KEYWORD);
 
-            verify(tourSpotCache).findByKeyword(KEYWORD, AUTOCOMPLETE_MAX_RESULTS);
+            verify(tourSpotCache).findByKeyword(AppLocale.KO, KEYWORD, AUTOCOMPLETE_MAX_RESULTS);
         }
     }
 
@@ -309,12 +310,12 @@ class MapSearchServiceTest {
                     .title("해운대해수욕장").mapX(129.16).mapY(35.16).build();
             TourSpot second = TourSpot.builder().contentId("126235").contentType(ContentType.RESTAURANT)
                     .title("해운대암소갈비집").mapX(129.17).mapY(35.17).build();
-            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(first, second));
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(first, second));
 
             MapSpotDetail firstDetail = mapSpotDetail("126234", "해운대해수욕장");
             MapSpotDetail secondDetail = mapSpotDetail("126235", "해운대암소갈비집");
-            given(mapService.getMapSpotDetail("126234")).willReturn(firstDetail);
-            given(mapService.getMapSpotDetail("126235")).willReturn(secondDetail);
+            given(mapService.getMapSpotDetail("126234", AppLocale.KO)).willReturn(firstDetail);
+            given(mapService.getMapSpotDetail("126235", AppLocale.KO)).willReturn(secondDetail);
 
             List<MapSpotDetail> result = mapSearchService.searchSpots(KEYWORD);
 
@@ -324,7 +325,7 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("캐시에 매칭되는 스팟이 없으면 빈 리스트를 반환하고 상세 조회는 호출하지 않는다")
         void returnsEmptyListWhenNoSpotsMatch() {
-            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
 
             List<MapSpotDetail> result = mapSearchService.searchSpots(KEYWORD);
 
@@ -335,11 +336,11 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("장소 검색 최대 개수(10개)로 캐시를 조회한다")
         void queriesCacheWithSpotsMaxResults() {
-            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
 
             mapSearchService.searchSpots(KEYWORD);
 
-            verify(tourSpotCache).findByKeyword(KEYWORD, SPOTS_MAX_RESULTS);
+            verify(tourSpotCache).findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS);
         }
 
         @Test
@@ -349,11 +350,11 @@ class MapSearchServiceTest {
                     .title("해운대사라진곳").mapX(129.0).mapY(35.0).build();
             TourSpot found = TourSpot.builder().contentId("126234").contentType(ContentType.TOURIST_ATTRACTION)
                     .title("해운대해수욕장").mapX(129.16).mapY(35.16).build();
-            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(missing, found));
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(missing, found));
 
-            given(mapService.getMapSpotDetail("999")).willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+            given(mapService.getMapSpotDetail("999", AppLocale.KO)).willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
             MapSpotDetail foundDetail = mapSpotDetail("126234", "해운대해수욕장");
-            given(mapService.getMapSpotDetail("126234")).willReturn(foundDetail);
+            given(mapService.getMapSpotDetail("126234", AppLocale.KO)).willReturn(foundDetail);
 
             List<MapSpotDetail> result = mapSearchService.searchSpots(KEYWORD);
 
@@ -365,8 +366,8 @@ class MapSearchServiceTest {
         void propagatesOtherBusinessExceptions() {
             TourSpot spot = TourSpot.builder().contentId("126234").contentType(ContentType.TOURIST_ATTRACTION)
                     .title("해운대해수욕장").mapX(129.16).mapY(35.16).build();
-            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(spot));
-            given(mapService.getMapSpotDetail("126234"))
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of(spot));
+            given(mapService.getMapSpotDetail("126234", AppLocale.KO))
                     .willThrow(new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR));
 
             assertThatThrownBy(() -> mapSearchService.searchSpots(KEYWORD))
@@ -389,11 +390,11 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("keyword 앞뒤 공백은 trim한 뒤 캐시를 조회한다")
         void trimsKeywordBeforeQueryingCache() {
-            given(tourSpotCache.findByKeyword(KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
+            given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS)).willReturn(List.of());
 
             mapSearchService.searchSpots(" " + KEYWORD + " ");
 
-            verify(tourSpotCache).findByKeyword(KEYWORD, SPOTS_MAX_RESULTS);
+            verify(tourSpotCache).findByKeyword(AppLocale.KO, KEYWORD, SPOTS_MAX_RESULTS);
         }
 
         @Test
@@ -404,8 +405,8 @@ class MapSearchServiceTest {
 
             MapSpotDetail first = mapSpotDetail("126234", "해운대해수욕장");
             MapSpotDetail second = mapSpotDetail("126235", "해운대암소갈비집");
-            given(mapService.getMapSpotDetail("126234")).willReturn(first);
-            given(mapService.getMapSpotDetail("126235")).willReturn(second);
+            given(mapService.getMapSpotDetail("126234", AppLocale.KO)).willReturn(first);
+            given(mapService.getMapSpotDetail("126235", AppLocale.KO)).willReturn(second);
 
             List<MapSpotDetail> result = mapSearchService.searchSpots("Hot Places");
 
@@ -430,9 +431,9 @@ class MapSearchServiceTest {
         void skipsNotFoundSpotAmongScrapRankedCandidates() {
             given(postRepository.findTopTourismContentIdsByScrapCount(SPOTS_MAX_RESULTS))
                     .willReturn(List.of("999", "126234"));
-            given(mapService.getMapSpotDetail("999")).willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
+            given(mapService.getMapSpotDetail("999", AppLocale.KO)).willThrow(new BusinessException(ErrorCode.MAP_CONTENT_NOT_FOUND));
             MapSpotDetail found = mapSpotDetail("126234", "해운대해수욕장");
-            given(mapService.getMapSpotDetail("126234")).willReturn(found);
+            given(mapService.getMapSpotDetail("126234", AppLocale.KO)).willReturn(found);
 
             List<MapSpotDetail> result = mapSearchService.searchSpots("Hot Places");
 

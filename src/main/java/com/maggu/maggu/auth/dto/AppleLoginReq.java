@@ -1,5 +1,6 @@
 package com.maggu.maggu.auth.dto;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 
@@ -12,6 +13,9 @@ public record AppleLoginReq(
         String authorizationCode,
 
         @Schema(description = "사용자 이름. Apple은 최초 로그인 시에만 제공한다.", example = "윤시진")
-        String fullName
+        String fullName,
+
+        @Schema(description = "앱 언어. 신규 가입 시 저장되며 없으면 KO. 예: KO, EN", example = "KO")
+        AppLocale locale
 ) {
 }
