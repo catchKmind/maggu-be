@@ -87,8 +87,9 @@ public class TourApiClient {
                 });
         CompletableFuture<String> introFuture = detailCommonFuture.thenCompose(detailCommonRawBody -> {
             String contentTypeId = extractContentTypeId(detailCommonRawBody);
+            ContentType contentType = ContentType.fromId(Integer.parseInt(contentTypeId));
 
-            if (contentTypeId.equals("12") || contentTypeId.equals("15") || contentTypeId.equals("39")) {
+            if (contentType.supportsDetailIntro()) {
                 return CompletableFuture.supplyAsync(
                                 () -> requestDetailIntroRawBody(contentId, contentTypeId, resolved))
                         .exceptionally(throwable -> {
@@ -96,7 +97,7 @@ public class TourApiClient {
                             return null;
                         });
             } else {
-                log.warn("서비스에서 지원하는 콘텐츠 타입 아님, 지원하는 콘텐츠 타입: 12|15|39: contentId={}, contentTypeId={}", contentId, contentTypeId);
+                log.warn("서비스에서 지원하는 콘텐츠 타입 아님, 지원하는 콘텐츠 타입: 관광지/축제/음식점: contentId={}, contentTypeId={}", contentId, contentTypeId);
                 return CompletableFuture.completedFuture(null);
             }
         });
@@ -377,8 +378,8 @@ public class TourApiClient {
             String introTel = null;
             if (introRawBody != null) {
                 try {
-                    switch (detailCommonItem.contentTypeId()) {
-                        case "12" -> {
+                    switch (ContentType.fromId(Integer.parseInt(detailCommonItem.contentTypeId()))) {
+                        case TOURIST_ATTRACTION -> {
                             TourApiRawResponse<DetailIntroAttractionItem> introResponse = validateRawResponse(DetailIntroAttractionItem.class, introRawBody);
                             DetailIntroAttractionItem item = introResponse.response().body().items().stream()
                                     .findFirst()
@@ -389,7 +390,7 @@ public class TourApiClient {
                                 introTel = item.infoCenter();
                             }
                         }
-                        case "15" -> {
+                        case FESTIVAL -> {
                             TourApiRawResponse<DetailIntroEventItem> introResponse = validateRawResponse(DetailIntroEventItem.class, introRawBody);
                             DetailIntroEventItem item = introResponse.response().body().items().stream()
                                     .findFirst()
@@ -400,7 +401,7 @@ public class TourApiClient {
                                 introTel = item.sponsorTel();
                             }
                         }
-                        case "39" -> {
+                        case RESTAURANT -> {
                             TourApiRawResponse<DetailIntroRestaurantItem> introResponse = validateRawResponse(DetailIntroRestaurantItem.class, introRawBody);
                             DetailIntroRestaurantItem item = introResponse.response().body().items().stream()
                                     .findFirst()
