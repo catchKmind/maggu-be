@@ -35,4 +35,10 @@ public enum ContentType {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown contentTypeId: " + id));
     }
+
+    // detailIntro2 조회를 지원하는 타입인지 확인
+    // TourApiClient.parseSpotDetail의 switch와 함께 수정해야 함
+    public boolean supportsDetailIntro() {
+        return this == TOURIST_ATTRACTION || this == FESTIVAL || this == RESTAURANT;
+    }
 }
