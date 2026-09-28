@@ -13,7 +13,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public enum ContentType {
 
-    // 국문(KO)
     TOURIST_ATTRACTION(12, 76, "관광지"),
     CULTURAL_FACILITY(14, 78, "문화시설"),
     FESTIVAL(15, 85, "축제공연행사"),
