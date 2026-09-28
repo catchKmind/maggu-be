@@ -64,7 +64,7 @@ class MapSearchControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data[0].contentId").value("126234"))
-                    .andExpect(jsonPath("$.data[0].contentType").value(ContentType.TOURIST_ATTRACTION.getId()))
+                    .andExpect(jsonPath("$.data[0].contentType").value(ContentType.TOURIST_ATTRACTION.getKoId()))
                     .andExpect(jsonPath("$.data[0].title").value("해운대해수욕장"));
         }
 
