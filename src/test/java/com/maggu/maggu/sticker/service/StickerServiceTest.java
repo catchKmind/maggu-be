@@ -6,6 +6,8 @@ import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.global.storage.PresignedUrlService;
+import com.maggu.maggu.global.storage.UploadDomain;
 import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
@@ -32,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -43,6 +46,9 @@ class StickerServiceTest {
 
     @Mock
     private PostStickerReactionRepository postStickerReactionRepository;
+
+    @Mock
+    private PresignedUrlService presignedUrlService;
 
     @Spy
     private CloudFrontUrlResolver cloudFrontUrlResolver =
@@ -119,6 +125,21 @@ class StickerServiceTest {
             assertThat(captor.getValue().getName()).isEqualTo("나그네의 커스텀 스티커");
             assertThat(captor.getValue().getUser()).isEqualTo(user);
             assertThat(captor.getValue().getType()).isEqualTo(StickerType.CUSTOM);
+        }
+
+        @Test
+        @DisplayName("imageUrl이 유효한 objectKey가 아니면 예외를 던지고 저장하지 않는다")
+        void throwsAndDoesNotSaveWhenObjectKeyInvalid() {
+            AppUser user = appUser("나그네");
+            StickerCreateRequest request = new StickerCreateRequest("string");
+            willThrow(new BusinessException(ErrorCode.UPLOAD_INVALID_OBJECT_KEY))
+                    .given(presignedUrlService).validateObjectKey(user, UploadDomain.STICKER, "string");
+
+            assertThatThrownBy(() -> stickerService.createMySticker(user, request))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
+
+            verify(stickerRepository, never()).save(any(Sticker.class));
         }
     }
 
