@@ -60,7 +60,8 @@ public enum ErrorCode {
     STICKER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STICKER-002", "본인이 생성한 스티커만 접근할 수 있습니다."),
 
     // Upload
-    UPLOAD_UNSUPPORTED_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UPLOAD-001", "지원하지 않는 컨텐츠 타입입니다.");
+    UPLOAD_UNSUPPORTED_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UPLOAD-001", "지원하지 않는 컨텐츠 타입입니다."),
+    UPLOAD_INVALID_OBJECT_KEY(HttpStatus.BAD_REQUEST, "UPLOAD-002", "유효하지 않은 object key입니다.");
 
 
     private final HttpStatus status;
