@@ -8,6 +8,8 @@ import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.PresignedUrlService;
+import com.maggu.maggu.global.storage.UploadDomain;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
 import com.maggu.maggu.user.entity.AppUser;
@@ -27,11 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class PostCommandServiceTest {
+
+    private static final String IMAGE_KEY = "POST/1/2d97184d-60ab-4b5a-9cb8-ac56c969320f.jpeg";
 
     @Mock
     private PostRepository postRepository;
@@ -41,6 +46,9 @@ class PostCommandServiceTest {
 
     @Mock
     private PostQueryService postQueryService;
+
+    @Mock
+    private PresignedUrlService presignedUrlService;
 
     @InjectMocks
     private PostCommandService postCommandService;
@@ -68,6 +76,7 @@ class PostCommandServiceTest {
             assertThat(captor.getValue().getContent()).isEqualTo("해운대 다녀왔어요");
             assertThat(captor.getValue().getLocation()).isNull();
             verify(postImageRepository, never()).save(any());
+            verify(presignedUrlService, never()).validateObjectKey(any(), any(), any());
         }
 
         @Test
@@ -93,7 +102,7 @@ class PostCommandServiceTest {
 
             postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of("https://img/a.jpg"), "해운대", "126234",
+                            List.of(IMAGE_KEY), "해운대", "126234",
                             PostCreateRequest.LocationSource.MANUAL, 35.16, 129.16));
 
             ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
@@ -101,7 +110,25 @@ class PostCommandServiceTest {
             assertThat(captor.getValue().getLocation()).isNotNull();
             assertThat(captor.getValue().getLocation().getY()).isEqualTo(35.16);
             assertThat(captor.getValue().getLocation().getX()).isEqualTo(129.16);
+            verify(presignedUrlService).validateObjectKey(writer, UploadDomain.POST, IMAGE_KEY);
             verify(postImageRepository).save(any(PostImage.class));
+        }
+
+        @Test
+        @DisplayName("사진 objectKey가 유효하지 않으면 예외를 던지고 게시글/이미지를 저장하지 않는다")
+        void throwsAndDoesNotSaveWhenObjectKeyInvalid() {
+            AppUser writer = appUser(1L);
+            willThrow(new BusinessException(ErrorCode.UPLOAD_INVALID_OBJECT_KEY))
+                    .given(presignedUrlService).validateObjectKey(writer, UploadDomain.POST, "string");
+
+            assertThatThrownBy(() -> postCommandService.createPost(writer,
+                    new PostCreateRequest("본문", PostCategory.RECOMMEND,
+                            List.of("string"), null, null, null, 35.16, 129.16)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
+
+            verify(postRepository, never()).saveAndFlush(any());
+            verify(postImageRepository, never()).save(any());
         }
 
         @Test
@@ -111,7 +138,7 @@ class PostCommandServiceTest {
 
             assertThatThrownBy(() -> postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of("https://img/a.jpg"), null, null, null, null, null)))
+                            List.of(IMAGE_KEY), null, null, null, null, null)))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.POST_LOCATION_REQUIRED));
 
@@ -125,7 +152,7 @@ class PostCommandServiceTest {
 
             assertThatThrownBy(() -> postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of("https://img/a.jpg"), null, null, null, 0.0, 0.0)))
+                            List.of(IMAGE_KEY), null, null, null, 0.0, 0.0)))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.POST_LOCATION_REQUIRED));
         }
@@ -141,6 +168,7 @@ class PostCommandServiceTest {
                             List.of(" ", ""), null, null, null, null, null));
 
             verify(postImageRepository, never()).save(any());
+            verify(presignedUrlService, never()).validateObjectKey(any(), any(), any());
         }
 
         @Test

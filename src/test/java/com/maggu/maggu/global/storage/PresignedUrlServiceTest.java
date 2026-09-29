@@ -12,6 +12,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -21,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.net.URL;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -101,6 +104,58 @@ class PresignedUrlServiceTest {
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
             verifyNoInteractions(amazonS3);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateObjectKey")
+    class ValidateObjectKey {
+
+        private static final String UUID_VALUE = "2d97184d-60ab-4b5a-9cb8-ac56c969320f";
+
+        @Test
+        @DisplayName("본인이 발급받은 {DOMAIN}/{userId}/{uuid}.{ext} 형식이면 통과한다")
+        void passesWhenKeyMatchesIssuedFormat() {
+            AppUser user = appUser(12L);
+
+            assertThatCode(() -> presignedUrlService.validateObjectKey(
+                    user, UploadDomain.STICKER, "STICKER/12/" + UUID_VALUE + ".png"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("generatePresignedUrl이 발급한 objectKey는 그대로 검증을 통과한다")
+        void passesForKeyIssuedByGeneratePresignedUrl() throws Exception {
+            AppUser user = appUser(1L);
+            given(amazonS3.generatePresignedUrl(any(GeneratePresignedUrlRequest.class)))
+                    .willReturn(new URL("https://test-bucket.s3.amazonaws.com/signed"));
+            String objectKey = presignedUrlService
+                    .generatePresignedUrl(user, new PresignedUrlRequest("image/heic", "STICKER"))
+                    .objectKey();
+
+            assertThatCode(() -> presignedUrlService.validateObjectKey(user, UploadDomain.STICKER, objectKey))
+                    .doesNotThrowAnyException();
+        }
+
+        @ParameterizedTest(name = "[{index}] {0}")
+        @ValueSource(strings = {
+                "string",
+                "https://test-bucket.s3.ap-northeast-2.amazonaws.com/STICKER/12/" + UUID_VALUE + ".png?X-Amz-Signature=abc",
+                "STICKER/99/" + UUID_VALUE + ".png",
+                "POST/12/" + UUID_VALUE + ".png",
+                "STICKER/12/" + UUID_VALUE + ".exe",
+                "STICKER/12/2D97184D-60AB-4B5A-9CB8-AC56C969320F.png",
+                "STICKER/12/x/" + UUID_VALUE + ".png",
+                "STICKER/12/" + UUID_VALUE,
+                "/STICKER/12/" + UUID_VALUE + ".png"
+        })
+        @DisplayName("발급 형식이 아니거나 다른 유저/도메인의 키면 UPLOAD_INVALID_OBJECT_KEY 예외를 던진다")
+        void throwsWhenKeyInvalid(String objectKey) {
+            AppUser user = appUser(12L);
+
+            assertThatThrownBy(() -> presignedUrlService.validateObjectKey(user, UploadDomain.STICKER, objectKey))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
         }
     }
 

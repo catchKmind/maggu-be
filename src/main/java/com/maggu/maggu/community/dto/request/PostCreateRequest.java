@@ -21,7 +21,7 @@ public record PostCreateRequest(
         PostCategory category,
 
         @Size(max = 4, message = "사진은 최대 4장까지 첨부할 수 있습니다.")
-        @Schema(description = "사진 URL 0~4장. 없으면 생략", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Schema(description = "presigned-url 발급(domain=POST) 응답의 objectKey 목록. 0~4개. 없으면 생략", example = "[\"POST/8/a0d0809f-83cb-469e-9861-861fd3ff9ceb.png\"]", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         List<String> imageUrls,
 
         @Schema(description = "장소명", requiredMode = Schema.RequiredMode.NOT_REQUIRED)

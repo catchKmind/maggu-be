@@ -3,6 +3,8 @@ package com.maggu.maggu.community.service;
 import com.maggu.maggu.community.dto.request.PostCreateRequest;
 import com.maggu.maggu.community.dto.response.PostCreateResponse;
 import com.maggu.maggu.community.dto.response.PostDeleteResponse;
+import com.maggu.maggu.global.storage.PresignedUrlService;
+import com.maggu.maggu.global.storage.UploadDomain;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
@@ -33,6 +35,7 @@ public class PostCommandService {
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
     private final PostQueryService postQueryService;
+    private final PresignedUrlService presignedUrlService;
 
     public PostCreateResponse createPost(AppUser writer, PostCreateRequest request) {
         List<String> imageUrls = normalizeImageUrls(request.imageUrls());
@@ -42,6 +45,9 @@ public class PostCommandService {
         }
         if (!imageUrls.isEmpty() && !hasValidCoordinates(request.latitude(), request.longitude())) {
             throw new BusinessException(ErrorCode.POST_LOCATION_REQUIRED);
+        }
+        for (String imageUrl : imageUrls) {
+            presignedUrlService.validateObjectKey(writer, UploadDomain.POST, imageUrl);
         }
 
         Point location = toPoint(request.latitude(), request.longitude());
