@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 public record StickerCreateRequest(
         @NotBlank
         @Size(max = 500)
-        @Schema(description = "스티커 이미지 URL")
+        @Schema(description = "presigned-url 응답의 objectKey", example = "STICKER/12/uuid.png")
         String imageUrl
 ) {
 }
