@@ -38,7 +38,9 @@ public class PostController {
     private static final int MAX_FEED_SIZE = 100;
 
     @PostMapping
-    @Operation(summary = "게시글 작성", description = "사진 0~4장, 본문 500자, 사진이 있으면 위도/경도 필수. 사진 없이 본문만 올릴 때는 위치 필드를 비운다.")
+    @Operation(summary = "게시글 작성",
+            description = "사진 0~4장, 본문 500자, 사진이 있으면 위도/경도 필수. " +
+                    "사진은 POST /api/v1/uploads/presigned-url(domain=POST)로 발급받은 objectKey를 imageUrls에 전달한다. 빈 문자열은 허용하지 않는다.")
     public PostCreateResponse createPost(
             @CurrentUser AppUser user,
             @Valid @RequestBody PostCreateRequest request

@@ -6,6 +6,7 @@ import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.config.CloudFrontProperties;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.global.storage.ObjectKeyValidator;
 import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
@@ -48,8 +49,13 @@ class StickerServiceTest {
     private CloudFrontUrlResolver cloudFrontUrlResolver =
             new CloudFrontUrlResolver(new CloudFrontProperties(""), "test-bucket");
 
+    @Spy
+    private ObjectKeyValidator objectKeyValidator = new ObjectKeyValidator();
+
     @InjectMocks
     private StickerService stickerService;
+
+    private static final String STICKER_OBJECT_KEY = "STICKER/1/550e8400-e29b-41d4-a716-446655440000.png";
 
     @Nested
     @DisplayName("getMyStickers")
@@ -91,8 +97,8 @@ class StickerServiceTest {
         @Test
         @DisplayName("전달받은 imageUrl로 커스텀 스티커를 저장하고, 저장된 id/imageUrl을 응답으로 반환한다")
         void createsStickerAndReturnsSavedInfo() {
-            AppUser user = appUser("나그네");
-            StickerCreateRequest request = new StickerCreateRequest("https://img/new.png");
+            AppUser user = appUserWithId(1L, "나그네");
+            StickerCreateRequest request = new StickerCreateRequest(STICKER_OBJECT_KEY);
             given(stickerRepository.save(any(Sticker.class))).willAnswer(invocation -> {
                 Sticker toSave = invocation.getArgument(0);
                 ReflectionTestUtils.setField(toSave, "id", 10L);
@@ -102,15 +108,15 @@ class StickerServiceTest {
             StickerResponse result = stickerService.createMySticker(user, request);
 
             assertThat(result.stickerId()).isEqualTo(10L);
-            assertThat(result.imageUrl()).isEqualTo("https://img/new.png");
+            assertThat(result.imageUrl()).isEqualTo(STICKER_OBJECT_KEY);
             assertThat(result.type()).isEqualTo(StickerType.CUSTOM);
         }
 
         @Test
         @DisplayName("스티커 이름은 FE 입력 없이 유저 닉네임을 기반으로 서버에서 조립하고, 소유자를 현재 유저로 설정한다")
         void assemblesNameFromNicknameAndOwnsSticker() {
-            AppUser user = appUser("나그네");
-            StickerCreateRequest request = new StickerCreateRequest("https://img/new.png");
+            AppUser user = appUserWithId(1L, "나그네");
+            StickerCreateRequest request = new StickerCreateRequest(STICKER_OBJECT_KEY);
             ArgumentCaptor<Sticker> captor = ArgumentCaptor.forClass(Sticker.class);
             given(stickerRepository.save(captor.capture())).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -118,7 +124,19 @@ class StickerServiceTest {
 
             assertThat(captor.getValue().getName()).isEqualTo("나그네의 커스텀 스티커");
             assertThat(captor.getValue().getUser()).isEqualTo(user);
+            assertThat(captor.getValue().getImageUrl()).isEqualTo(STICKER_OBJECT_KEY);
             assertThat(captor.getValue().getType()).isEqualTo(StickerType.CUSTOM);
+        }
+
+        @Test
+        @DisplayName("HTTP URL은 objectKey로 받지 않는다")
+        void throwsWhenHttpUrlProvided() {
+            AppUser user = appUserWithId(1L, "나그네");
+
+            assertThatThrownBy(() -> stickerService.createMySticker(user,
+                    new StickerCreateRequest("https://img/new.png")))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
         }
     }
 

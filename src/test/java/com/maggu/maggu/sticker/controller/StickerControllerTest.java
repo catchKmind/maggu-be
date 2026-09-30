@@ -46,6 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 class StickerControllerTest {
 
+    private static final String STICKER_OBJECT_KEY = "STICKER/1/550e8400-e29b-41d4-a716-446655440000.png";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -99,15 +101,15 @@ class StickerControllerTest {
         void createsSticker() throws Exception {
             authenticateAs(appUser(1L, "나그네"));
             given(stickerService.createMySticker(any(), any())).willReturn(
-                    StickerResponse.builder().stickerId(10L).imageUrl("https://img/new.png").build());
+                    StickerResponse.builder().stickerId(10L).imageUrl(STICKER_OBJECT_KEY).build());
 
             mockMvc.perform(post("/api/v1/stickers")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(new StickerCreateRequest("https://img/new.png"))))
+                            .content(objectMapper.writeValueAsString(new StickerCreateRequest(STICKER_OBJECT_KEY))))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.stickerId").value(10))
-                    .andExpect(jsonPath("$.data.imageUrl").value("https://img/new.png"));
+                    .andExpect(jsonPath("$.data.imageUrl").value(STICKER_OBJECT_KEY));
         }
 
         @Test
@@ -145,7 +147,7 @@ class StickerControllerTest {
         void returnsUnauthorizedWhenNotAuthenticated() throws Exception {
             mockMvc.perform(post("/api/v1/stickers")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(new StickerCreateRequest("https://img/new.png"))))
+                            .content(objectMapper.writeValueAsString(new StickerCreateRequest(STICKER_OBJECT_KEY))))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("AUTH-002"));
 

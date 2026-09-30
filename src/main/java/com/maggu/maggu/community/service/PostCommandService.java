@@ -8,6 +8,7 @@ import com.maggu.maggu.community.entity.PostImage;
 import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.ObjectKeyValidator;
 import com.maggu.maggu.post.repository.PostRepository;
 import com.maggu.maggu.user.entity.AppUser;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +34,10 @@ public class PostCommandService {
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
     private final PostQueryService postQueryService;
+    private final ObjectKeyValidator objectKeyValidator;
 
     public PostCreateResponse createPost(AppUser writer, PostCreateRequest request) {
-        List<String> imageUrls = normalizeImageUrls(request.imageUrls());
+        List<String> imageUrls = objectKeyValidator.validatePostObjectKeys(writer, request.imageUrls());
 
         if (imageUrls.size() > PostImage.MAX_IMAGE_COUNT) {
             throw new BusinessException(ErrorCode.POST_IMAGE_LIMIT_EXCEEDED);
@@ -95,16 +97,6 @@ public class PostCommandService {
     private static boolean hasValidCoordinates(Double latitude, Double longitude) {
         // 스웨거 숫자 기본값 (0, 0)은 한국 서비스에서 유효 좌표가 아니므로 미입력으로 본다
         return latitude != null && longitude != null && !(latitude == 0.0 && longitude == 0.0);
-    }
-
-    private static List<String> normalizeImageUrls(List<String> imageUrls) {
-        if (imageUrls == null) {
-            return List.of();
-        }
-        return imageUrls.stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .toList();
     }
 
     private static String toTitle(String content) {

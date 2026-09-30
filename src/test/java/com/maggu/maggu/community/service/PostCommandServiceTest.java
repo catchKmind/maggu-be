@@ -8,6 +8,7 @@ import com.maggu.maggu.community.repository.PostImageRepository;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.ObjectKeyValidator;
 import com.maggu.maggu.post.entity.Post;
 import com.maggu.maggu.post.repository.PostRepository;
 import com.maggu.maggu.user.entity.AppUser;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -42,8 +44,13 @@ class PostCommandServiceTest {
     @Mock
     private PostQueryService postQueryService;
 
+    @Spy
+    private ObjectKeyValidator objectKeyValidator = new ObjectKeyValidator();
+
     @InjectMocks
     private PostCommandService postCommandService;
+
+    private static final String POST_OBJECT_KEY = "POST/1/550e8400-e29b-41d4-a716-446655440000.jpeg";
 
     @Nested
     @DisplayName("createPost")
@@ -93,7 +100,7 @@ class PostCommandServiceTest {
 
             postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of("https://img/a.jpg"), "해운대", "126234",
+                            List.of(POST_OBJECT_KEY), "해운대", "126234",
                             PostCreateRequest.LocationSource.MANUAL, 35.16, 129.16));
 
             ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
@@ -111,7 +118,7 @@ class PostCommandServiceTest {
 
             assertThatThrownBy(() -> postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of("https://img/a.jpg"), null, null, null, null, null)))
+                            List.of(POST_OBJECT_KEY), null, null, null, null, null)))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.POST_LOCATION_REQUIRED));
 
@@ -125,22 +132,35 @@ class PostCommandServiceTest {
 
             assertThatThrownBy(() -> postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of("https://img/a.jpg"), null, null, null, 0.0, 0.0)))
+                            List.of(POST_OBJECT_KEY), null, null, null, 0.0, 0.0)))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.POST_LOCATION_REQUIRED));
         }
 
         @Test
-        @DisplayName("빈 이미지 URL은 무시하고 사진 없는 글로 저장한다")
-        void ignoresBlankImageUrls() {
+        @DisplayName("빈 objectKey가 섞이면 예외를 던진다")
+        void throwsWhenBlankObjectKeyIncluded() {
             AppUser writer = appUser(1L);
-            stubSave();
 
-            postCommandService.createPost(writer,
+            assertThatThrownBy(() -> postCommandService.createPost(writer,
                     new PostCreateRequest("본문", PostCategory.RECOMMEND,
-                            List.of(" ", ""), null, null, null, null, null));
+                            List.of(" ", POST_OBJECT_KEY), null, null, null, null, null)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
 
-            verify(postImageRepository, never()).save(any());
+            verify(postRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("HTTP URL 형식은 objectKey로 받지 않는다")
+        void throwsWhenHttpUrlProvided() {
+            AppUser writer = appUser(1L);
+
+            assertThatThrownBy(() -> postCommandService.createPost(writer,
+                    new PostCreateRequest("본문", PostCategory.RECOMMEND,
+                            List.of("https://img/a.jpg"), null, null, null, 35.16, 129.16)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
         }
 
         @Test
