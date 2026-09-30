@@ -61,7 +61,7 @@ public enum ErrorCode {
 
     // Upload
     UPLOAD_UNSUPPORTED_CONTENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UPLOAD-001", "지원하지 않는 컨텐츠 타입입니다."),
-    UPLOAD_INVALID_OBJECT_KEY(HttpStatus.BAD_REQUEST, "UPLOAD-002", "유효하지 않은 objectKey입니다. presigned URL 발급 후 PUT 업로드한 objectKey를 전달해야 합니다.");
+    UPLOAD_INVALID_OBJECT_KEY(HttpStatus.BAD_REQUEST, "UPLOAD-002", "유효하지 않은 object key입니다.");
 
 
     private final HttpStatus status;

@@ -34,6 +34,7 @@ public class SecurityConfig {
     private static final String[] PERMIT_ALL_URLS = {
             "/api/v1/auth/login",
             "/api/v1/auth/test-login",
+            "/api/v1/map/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**"

@@ -4,7 +4,8 @@ import com.maggu.maggu.community.repository.PostStickerReactionRepository;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
-import com.maggu.maggu.global.storage.ObjectKeyValidator;
+import com.maggu.maggu.global.storage.PresignedUrlService;
+import com.maggu.maggu.global.storage.UploadDomain;
 import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerCreateRequest;
 import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
@@ -27,7 +28,7 @@ public class StickerService {
     private final StickerRepository stickerRepository;
     private final PostStickerReactionRepository postStickerReactionRepository;
     private final CloudFrontUrlResolver cloudFrontUrlResolver;
-    private final ObjectKeyValidator objectKeyValidator;
+    private final PresignedUrlService presignedUrlService;
 
     @Transactional
     public StickerResponse createGiphySticker(GiphyStickerCreateRequest request) {
@@ -58,10 +59,11 @@ public class StickerService {
 
     @Transactional
     public StickerResponse createMySticker(AppUser user, StickerCreateRequest request) {
-        String objectKey = objectKeyValidator.validateStickerObjectKey(user, request.imageUrl());
+        presignedUrlService.validateObjectKey(user, UploadDomain.STICKER, request.imageUrl());
+
         Sticker savedSticker = stickerRepository.save(Sticker.builder()
                 .name(user.getNickname() + "의 커스텀 스티커")
-                .imageUrl(objectKey)
+                .imageUrl(request.imageUrl())
                 .user(user)
                 .type(StickerType.CUSTOM)
                 .build());
