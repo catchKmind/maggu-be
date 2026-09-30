@@ -41,7 +41,8 @@ public class StickerController {
         return stickerService.getMyStickers(user);
     }
 
-    @Operation(summary = "내 스티커 생성")
+    @Operation(summary = "내 스티커 생성",
+            description = "POST /api/v1/uploads/presigned-url(domain=STICKER)로 발급받은 objectKey를 imageUrl 필드에 전달한다.")
     @PostMapping
     public StickerResponse createMySticker(@CurrentUser AppUser user,
                                            @Valid @RequestBody StickerCreateRequest request) {
