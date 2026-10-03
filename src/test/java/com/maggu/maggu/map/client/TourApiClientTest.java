@@ -2,6 +2,8 @@ package com.maggu.maggu.map.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
+import com.maggu.maggu.global.exception.BusinessException;
+import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.map.dto.MapSpotDetail;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,8 +17,12 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -28,6 +34,8 @@ class TourApiClientTest {
     private static final String CONTENT_ID = "126234";
 
     private MockRestServiceServer mockServer;
+    private RestClient restClient;
+    private TourismApiProperties properties;
     private TourApiClient tourApiClient;
 
     @BeforeEach
@@ -35,11 +43,26 @@ class TourApiClientTest {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         // detailCommon2/detailImage2/detailIntro2가 CompletableFuture로 동시에 호출되므로 요청이 도착하는 순서를 보장할 수 없다 — 순서 무시 모드로 바인딩한다.
         mockServer = MockRestServiceServer.bindTo(builder).ignoreExpectOrder(true).build();
-        RestClient restClient = builder.build();
+        restClient = builder.build();
+        properties = new TourismApiProperties(BASE_URL, BASE_URL, "test-service-key", Duration.ofSeconds(2), Duration.ofSeconds(2));
+        // 호출 스레드에서 바로 실행 — 병렬성 없이 결과를 결정적으로 검증한다.
+        tourApiClient = createClient(Runnable::run);
+    }
 
-        TourismApiProperties properties =
-                new TourismApiProperties(BASE_URL, BASE_URL, "test-service-key", Duration.ofSeconds(2), Duration.ofSeconds(2));
-        tourApiClient = new TourApiClient(restClient, restClient, properties, new ObjectMapper());
+    private TourApiClient createClient(Executor executor) {
+        return new TourApiClient(restClient, restClient, executor, properties, new ObjectMapper());
+    }
+
+    // 앞의 allowedSubmissions건까지만 호출 스레드에서 실행하고, 그 이후 제출은 풀 포화처럼 거절한다.
+    // Runnable::run 기반이라 제출 순서가 고정된다: detailCommon2(1) → detailImage2(2) → detailIntro2(3).
+    private Executor rejectingAfter(int allowedSubmissions) {
+        AtomicInteger submitted = new AtomicInteger();
+        return task -> {
+            if (submitted.incrementAndGet() > allowedSubmissions) {
+                throw new RejectedExecutionException("thread pool saturated");
+            }
+            task.run();
+        };
     }
 
     @Nested
@@ -87,6 +110,55 @@ class TourApiClientTest {
 
             assertThat(detail.title()).isEqualTo("테스트장소");
             assertThat(detail.tel()).isEqualTo("02-1234-5678");
+            assertThat(detail.businessHours()).isNull();
+            assertThat(detail.closedDays()).isNull();
+            mockServer.verify();
+        }
+    }
+
+    @Nested
+    @DisplayName("findSpotDetail - 스레드 풀 포화로 제출이 거절될 때")
+    class FindSpotDetailWhenRejected {
+
+        @Test
+        @DisplayName("핵심 정보(detailCommon2) 제출이 거절되면 TOURISM_API_OVERLOADED를 던지고 TourAPI를 호출하지 않는다")
+        void throwsOverloadedWhenDetailCommonRejected() {
+            TourApiClient client = createClient(rejectingAfter(0));
+            // expectation을 등록하지 않는다 — 어떤 TourAPI 요청이든 나가면 테스트가 실패한다.
+
+            assertThatThrownBy(() -> client.findSpotDetail(CONTENT_ID))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOURISM_API_OVERLOADED));
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("이미지/영업시간 제출이 거절되면 해당 필드만 비우고 나머지 상세 정보는 정상 반환한다")
+        void degradesWhenImageAndIntroRejected() {
+            TourApiClient client = createClient(rejectingAfter(1));
+            expectDetailCommon(detailCommonJson("12"));
+            // detailImage2/detailIntro2는 거절되어 호출되지 않아야 하므로 expectation을 등록하지 않는다.
+
+            MapSpotDetail detail = client.findSpotDetail(CONTENT_ID);
+
+            assertThat(detail.title()).isEqualTo("테스트장소");
+            assertThat(detail.images()).isEmpty();
+            assertThat(detail.businessHours()).isNull();
+            assertThat(detail.closedDays()).isNull();
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("thenCompose 안에서 제출되는 영업시간 조회가 거절돼도 502로 번지지 않고 null로 대체된다")
+        void degradesWhenOnlyIntroRejected() {
+            TourApiClient client = createClient(rejectingAfter(2));
+            expectDetailCommon(detailCommonJson("12"));
+            expectDetailImage(emptyItemsJson());
+            // detailIntro2는 거절되어 호출되지 않아야 하므로 expectation을 등록하지 않는다.
+
+            MapSpotDetail detail = client.findSpotDetail(CONTENT_ID);
+
+            assertThat(detail.title()).isEqualTo("테스트장소");
             assertThat(detail.businessHours()).isNull();
             assertThat(detail.closedDays()).isNull();
             mockServer.verify();
