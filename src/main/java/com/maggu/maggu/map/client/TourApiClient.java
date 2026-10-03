@@ -22,6 +22,8 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -43,22 +45,24 @@ public class TourApiClient {
     private static final String AREA_BATCH_NUM_OF_ROWS = "4000";
     private static final String DETAIL_IMAGE_NUM_OF_ROWS = "3";
     private static final String FESTIVAL_NUM_OF_ROWS = "1000";
-
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final RestClient korTourApiRestClient;
     private final RestClient engTourApiRestClient;
+    private final Executor tourApiExecutor;
     private final TourismApiProperties properties;
     private final ObjectMapper objectMapper;
 
     public TourApiClient(
             @Qualifier("korTourApiRestClient") RestClient korTourApiRestClient,
             @Qualifier("engTourApiRestClient") RestClient engTourApiRestClient,
+            @Qualifier("tourApiExecutor") Executor tourApiExecutor,
             TourismApiProperties properties,
             ObjectMapper objectMapper
     ) {
         this.korTourApiRestClient = korTourApiRestClient;
         this.engTourApiRestClient = engTourApiRestClient;
+        this.tourApiExecutor = tourApiExecutor;
         this.properties = properties;
         this.objectMapper = objectMapper;
     }
@@ -77,27 +81,28 @@ public class TourApiClient {
 
     public MapSpotDetail findSpotDetail(String contentId, AppLocale locale) {
         AppLocale resolved = resolveLocale(locale);
-        CompletableFuture<String> detailCommonFuture = CompletableFuture.supplyAsync(
-                () -> requestDetailCommonRawBody(contentId, resolved));
-        CompletableFuture<String> imageFuture = CompletableFuture.supplyAsync(
-                        () -> requestDetailImageRawBody(contentId, resolved))
-                .exceptionally(throwable -> {
-                    log.warn("이미지 조회 실패, 빈 이미지로 대체: contentId={}", contentId, throwable);
-                    return null;
-                });
+        CompletableFuture<String> detailCommonFuture;
+        try {
+            detailCommonFuture = CompletableFuture.supplyAsync(
+                    () -> requestDetailCommonRawBody(contentId, resolved), tourApiExecutor);
+        } catch (RejectedExecutionException e) {
+            log.warn("[MAP] 스레드 풀 포화로 상세조회 거절, {} 응답: contentId={}, locale={}",
+                    ErrorCode.TOURISM_API_OVERLOADED.getCode(), contentId, resolved);
+            throw new BusinessException(ErrorCode.TOURISM_API_OVERLOADED);
+        }
+
+        CompletableFuture<String> imageFuture = supplyOptionalAsync(
+                () -> requestDetailImageRawBody(contentId, resolved), "이미지", contentId);
+
         CompletableFuture<String> introFuture = detailCommonFuture.thenCompose(detailCommonRawBody -> {
             String contentTypeId = extractContentTypeId(detailCommonRawBody);
             ContentType contentType = ContentType.fromId(Integer.parseInt(contentTypeId));
 
             if (contentType.supportsDetailIntro()) {
-                return CompletableFuture.supplyAsync(
-                                () -> requestDetailIntroRawBody(contentId, contentTypeId, resolved))
-                        .exceptionally(throwable -> {
-                            log.warn("영업 관련 정보 조회 실패, null로 대체: contentId={}", contentId, throwable);
-                            return null;
-                        });
+                return supplyOptionalAsync(
+                        () -> requestDetailIntroRawBody(contentId, contentTypeId, resolved), "영업 관련 정보", contentId);
             } else {
-                log.warn("서비스에서 지원하는 콘텐츠 타입 아님, 지원하는 콘텐츠 타입: 관광지/축제/음식점: contentId={}, contentTypeId={}", contentId, contentTypeId);
+                log.warn("[MAP] 서비스에서 지원하는 콘텐츠 타입 아님, 지원하는 콘텐츠 타입: 관광지/축제/음식점: contentId={}, contentTypeId={}", contentId, contentTypeId);
                 return CompletableFuture.completedFuture(null);
             }
         });
@@ -115,6 +120,22 @@ public class TourApiClient {
                 log.warn("예상치 못한 예외 발생", e.getCause());
                 throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR);
             }
+        }
+    }
+
+    // 실패해도 상세조회 전체를 실패시키지 않는 부가 정보(이미지/영업시간) 호출용
+    // 실행 중 실패(.exceptionally)와 풀 포화로 인한 제출 거절(RejectedExecutionException) 모두 null로 대체
+    // 거절은 supplyAsync 호출 시점에 동기적으로 던져져 .exceptionally로는 잡히지 않으므로 따로 catch
+    private CompletableFuture<String> supplyOptionalAsync(Supplier<String> request, String target, String contentId) {
+        try {
+            return CompletableFuture.supplyAsync(request, tourApiExecutor)
+                    .exceptionally(throwable -> {
+                        log.warn("[MAP] {} 조회 실패, null로 대체: contentId={}", target, contentId, throwable);
+                        return null;
+                    });
+        } catch (RejectedExecutionException e) {
+            log.warn("[MAP] 스레드 풀 포화로 {} 조회 생략, null로 대체: contentId={}", target, contentId);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
