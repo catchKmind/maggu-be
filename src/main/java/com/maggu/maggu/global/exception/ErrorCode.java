@@ -29,6 +29,7 @@ public enum ErrorCode {
     EXTERNAL_TOURISM_API_ERROR(HttpStatus.BAD_GATEWAY, "MAP-001", "관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."),
     MAP_CONTENT_NOT_FOUND(HttpStatus.NOT_FOUND, "MAP-002", "유효하지 않은 장소입니다."),
     TOURISM_API_OVERLOADED(HttpStatus.SERVICE_UNAVAILABLE, "MAP-003", "요청이 많아 관광 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."),
+    TOURISM_API_QUOTA_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "MAP-004", "현재 관광 정보를 제공할 수 없습니다."),
 
     // Place
     PLACE_FOLDER_NAME_DUPLICATE(HttpStatus.CONFLICT, "PLACE-001", "이미 사용 중인 폴더명입니다."),
