@@ -2,6 +2,7 @@ package com.maggu.maggu.map.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
 import com.maggu.maggu.global.entity.enums.AppLocale;
@@ -46,6 +47,11 @@ public class TourApiClient {
     private static final String DETAIL_IMAGE_NUM_OF_ROWS = "3";
     private static final String FESTIVAL_NUM_OF_ROWS = "1000";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    // 공공데이터포털 게이트웨이 오류 코드(returnReasonCode)
+    private static final String QUOTA_EXCEEDED_REASON_CODE = "22"; // LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR
+    // 요청 파라미터(10·11), 서비스·인증키·IP 설정(12·20·21·30·31·32·33)
+    private static final Set<String> ACTION_REQUIRED_REASON_CODES = Set.of("10", "11", "12", "20", "21", "30", "31", "32", "33");
 
     private final RestClient korTourApiRestClient;
     private final RestClient engTourApiRestClient;
@@ -319,12 +325,39 @@ public class TourApiClient {
         try {
             return requestSupplier.get();
         } catch (RestClientResponseException e) {
-            log.warn("TourAPI 호출이 오류 상태코드 반환: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
+            String body = e.getResponseBodyAsString();
+            String reasonCode = extractGatewayReasonCode(body);
+
+            if (QUOTA_EXCEEDED_REASON_CODE.equals(reasonCode)) {
+                log.error("[TourAPI] 일일 트래픽 한도 초과: status={}, reasonCode={}, body={}",
+                        e.getStatusCode(), reasonCode, body);
+                throw new BusinessException(ErrorCode.TOURISM_API_QUOTA_EXCEEDED, "TourAPI 일일 트래픽 한도 초과");
+            } else if (reasonCode != null && ACTION_REQUIRED_REASON_CODES.contains(reasonCode)) {
+                // 시간이 지나도 저절로 복구되지 않는 오류 — 서비스키/활용기간/IP 등록(data.go.kr) 또는 요청 파라미터(코드) 수정 필요
+                log.error("[TourAPI] 공공데이터포털 설정·요청 오류, 조치 필요(서비스키·활용기간·IP 등록 또는 요청 파라미터 확인): status={}, reasonCode={}, body={}",
+                        e.getStatusCode(), reasonCode, body);
+                throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 설정·요청 오류(조치 필요)");
+            } else {
+                log.warn("[TourAPI] 오류 상태코드 반환: status={}, reasonCode={}, body={}",
+                        e.getStatusCode(), reasonCode, body, e);
+                throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출이 오류 상태코드 반환");
+            }
         } catch (RestClientException e) {
-            log.warn("TourAPI 호출 실패: ", e);
+            log.warn("[TourAPI] 호출 실패: ", e);
             throw new BusinessException(ErrorCode.EXTERNAL_TOURISM_API_ERROR, "TourAPI 호출 실패");
+        }
+    }
+
+    // 게이트웨이 오류 형식이 아니면 null
+    private String extractGatewayReasonCode(String body) {
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            return root.path("OpenAPI_ServiceResponse")
+                    .path("cmmMsgHeader")
+                    .path("returnReasonCode")
+                    .asText(null); // 값이 없을 때 돌려주는 기본값
+        } catch (JsonProcessingException e) {
+            return null;
         }
     }
 
