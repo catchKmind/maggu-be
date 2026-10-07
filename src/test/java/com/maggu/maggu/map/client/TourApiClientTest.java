@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class TourApiClientTest {
@@ -166,6 +168,87 @@ class TourApiClientTest {
     }
 
     @Nested
+    @DisplayName("TourAPI 오류 상태코드 응답 처리")
+    class ErrorStatusResponse {
+
+        @Test
+        @DisplayName("게이트웨이가 한도 초과(22)를 반환하면 TOURISM_API_QUOTA_EXCEEDED를 던진다")
+        void throwsQuotaExceededWhenGatewayReturns22() {
+            expectDetailCommonError(HttpStatus.FORBIDDEN,
+                    gatewayErrorJson("22", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR"));
+            // detailCommon2가 실패해도 detailImage2는 이미 제출되어 요청이 나간다(Runnable::run). detailIntro2는 thenCompose가 실행되지 않아 호출되지 않는다.
+            expectDetailImage(emptyItemsJson());
+
+            assertThatThrownBy(() -> tourApiClient.findSpotDetail(CONTENT_ID))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOURISM_API_QUOTA_EXCEEDED));
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("게이트웨이가 설정 오류(30, 미등록 서비스키)를 반환하면 쿼터 초과가 아닌 EXTERNAL_TOURISM_API_ERROR를 던진다")
+        void throwsExternalErrorWhenGatewayReturnsActionRequiredCode() {
+            expectDetailCommonError(HttpStatus.FORBIDDEN,
+                    gatewayErrorJson("30", "SERVICE_KEY_IS_NOT_REGISTERED_ERROR"));
+            expectDetailImage(emptyItemsJson());
+
+            assertThatThrownBy(() -> tourApiClient.findSpotDetail(CONTENT_ID))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_TOURISM_API_ERROR));
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("게이트웨이 오류 형식이 아닌 본문(JSON 아님)이면 파싱 실패로 터지지 않고 EXTERNAL_TOURISM_API_ERROR를 던진다")
+        void throwsExternalErrorWhenBodyIsNotGatewayFormat() {
+            mockServer.expect(requestTo(containsString("/detailCommon2")))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .contentType(MediaType.TEXT_PLAIN)
+                            .body("Internal Server Error"));
+            expectDetailImage(emptyItemsJson());
+
+            assertThatThrownBy(() -> tourApiClient.findSpotDetail(CONTENT_ID))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_TOURISM_API_ERROR));
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("부가 정보(detailImage2)만 한도 초과여도 상세조회는 정상 반환되고 이미지만 비어 있다")
+        void degradesWhenOnlyImageQuotaExceeded() {
+            // 14(문화시설)는 detailIntro2를 호출하지 않는 타입이라 expectation을 줄일 수 있다.
+            expectDetailCommon(detailCommonJson("14"));
+            mockServer.expect(requestTo(containsString("/detailImage2")))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withStatus(HttpStatus.FORBIDDEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(gatewayErrorJson("22", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR")));
+
+            MapSpotDetail detail = tourApiClient.findSpotDetail(CONTENT_ID);
+
+            assertThat(detail.title()).isEqualTo("테스트장소");
+            assertThat(detail.images()).isEmpty();
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("배치 경로(searchFestival)도 한도 초과를 TOURISM_API_QUOTA_EXCEEDED로 던진다")
+        void throwsQuotaExceededOnBatchPathToo() {
+            mockServer.expect(requestTo(containsString("/searchFestival2")))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withStatus(HttpStatus.FORBIDDEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(gatewayErrorJson("22", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR")));
+
+            assertThatThrownBy(() -> tourApiClient.searchFestival(TourServiceArea.GB))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOURISM_API_QUOTA_EXCEEDED));
+            mockServer.verify();
+        }
+    }
+
+    @Nested
     @DisplayName("searchFestival")
     class SearchFestival {
 
@@ -216,6 +299,21 @@ class TourApiClientTest {
         mockServer.expect(requestTo(containsString("/detailCommon2")))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+    }
+
+    private void expectDetailCommonError(HttpStatus status, String body) {
+        mockServer.expect(requestTo(containsString("/detailCommon2")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(status).contentType(MediaType.APPLICATION_JSON).body(body));
+    }
+
+    // 공공데이터포털 게이트웨이 오류 응답(_type=json). 실제로 잘못된 서비스키로 호출했을 때 받은 403 응답과 같은 구조.
+    private String gatewayErrorJson(String reasonCode, String errMsg) {
+        return """
+                {"OpenAPI_ServiceResponse":{"cmmMsgHeader":{
+                  "errMsg":"%s","returnAuthMsg":"테스트","returnReasonCode":"%s"
+                }}}
+                """.formatted(errMsg, reasonCode);
     }
 
     private void expectDetailImage(String responseJson) {
