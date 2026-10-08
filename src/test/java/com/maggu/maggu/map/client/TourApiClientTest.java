@@ -2,6 +2,7 @@ package com.maggu.maggu.map.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.global.config.TourismApiProperties;
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.map.dto.MapSpotDetail;
@@ -278,6 +279,53 @@ class TourApiClientTest {
             assertThat(result).isEmpty();
             mockServer.verify();
         }
+    }
+
+    @Nested
+    @DisplayName("findAllByArea")
+    class FindAllByArea {
+
+        @Test
+        @DisplayName("정상 응답이면 지역 스팟 목록을 파싱해 반환한다")
+        void returnsParsedAreaSpots() {
+            expectAreaBasedList(areaBasedListJson(List.of(areaItemJson("1", "12"), areaItemJson("2", "39"))));
+
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+
+            assertThat(result).extracting(TourSpot::contentId).containsExactly("1", "2");
+            assertThat(result).extracting(TourSpot::contentType)
+                    .containsExactly(ContentType.TOURIST_ATTRACTION, ContentType.RESTAURANT);
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("파싱에 실패한 항목은 건너뛰고 나머지는 정상 반환된다(전체 실패시키지 않음)")
+        void skipsMalformedItemInsteadOfFailingWholeBatch() {
+            expectAreaBasedList(areaBasedListJson(List.of(areaItemJson("1", "12"), areaItemJson("2", "invalid"))));
+
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+
+            assertThat(result).extracting(TourSpot::contentId).containsExactly("1");
+            mockServer.verify();
+        }
+    }
+
+    private void expectAreaBasedList(String responseJson) {
+        mockServer.expect(requestTo(containsString("/areaBasedList2")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+    }
+
+    private String areaBasedListJson(List<String> items) {
+        return """
+                {"response":{"header":{"resultCode":"0000","resultMsg":"OK"},"body":{"items":{"item":[%s]}}}}
+                """.formatted(String.join(",", items));
+    }
+
+    private String areaItemJson(String contentId, String contentTypeId) {
+        return """
+                {"contentid":"%s","contenttypeid":"%s","title":"장소%s","mapx":"128.6","mapy":"36.0"}
+                """.formatted(contentId, contentTypeId, contentId);
     }
 
     private void expectSearchFestival(String responseJson) {
