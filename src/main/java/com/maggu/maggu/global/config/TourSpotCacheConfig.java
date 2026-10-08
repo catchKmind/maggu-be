@@ -14,7 +14,7 @@ public class TourSpotCacheConfig {
     @Bean
     public Cache<String, TourSpot> tourSpotCaffeineCache() {
         return Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofDays(7))
+                .expireAfterWrite(Duration.ofHours(50))
                 .maximumSize(40_000)
                 .build();
     }
