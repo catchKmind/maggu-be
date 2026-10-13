@@ -33,12 +33,7 @@ public class PlaceFolderService {
         }
 
         return folders.stream()
-                .map(f -> PlaceFolderResponse.builder()
-                        .placeFolderId(f.getId())
-                        .name(f.getName())
-                        .icon(f.getIcon())
-                        .isDefault(f.isDefault())
-                        .build())
+                .map(PlaceFolderResponse::from)
                 .toList();
     }
 
