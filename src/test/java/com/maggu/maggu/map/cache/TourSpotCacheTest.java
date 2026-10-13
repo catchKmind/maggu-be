@@ -156,6 +156,45 @@ class TourSpotCacheTest {
         }
     }
 
+    @Nested
+    @DisplayName("findByContentId")
+    class FindByContentId {
+
+        @Test
+        @DisplayName("해당 언어 캐시에 contentId가 있으면 그 스팟을 반환한다")
+        void returnsSpotWhenCached() {
+            TourSpot spot = spot("126508", "경복궁", 126.97, 37.57);
+            tourSpotCache.putAll(AppLocale.KO, List.of(spot));
+
+            assertThat(tourSpotCache.findByContentId(AppLocale.KO, "126508")).contains(spot);
+        }
+
+        @Test
+        @DisplayName("캐시에 없는 contentId면 빈 Optional을 반환한다")
+        void returnsEmptyWhenNotCached() {
+            tourSpotCache.putAll(AppLocale.KO, List.of(spot("126508", "경복궁", 126.97, 37.57)));
+
+            assertThat(tourSpotCache.findByContentId(AppLocale.KO, "999999")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("다른 언어 캐시에만 있는 contentId면 빈 Optional을 반환한다")
+        void returnsEmptyWhenCachedOnlyInOtherLocale() {
+            tourSpotCache.putAll(AppLocale.KO, List.of(spot("126508", "경복궁", 126.97, 37.57)));
+
+            assertThat(tourSpotCache.findByContentId(AppLocale.EN, "126508")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("locale이 null이면 KO 캐시에서 조회한다")
+        void fallsBackToKoreanWhenLocaleNull() {
+            TourSpot spot = spot("126508", "경복궁", 126.97, 37.57);
+            tourSpotCache.putAll(AppLocale.KO, List.of(spot));
+
+            assertThat(tourSpotCache.findByContentId(null, "126508")).contains(spot);
+        }
+    }
+
     private TourSpot spot(String contentId, double mapX, double mapY) {
         return spot(contentId, "테스트 스팟", mapX, mapY);
     }

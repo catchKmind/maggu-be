@@ -1,10 +1,16 @@
 package com.maggu.maggu.place.service;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.map.cache.TourSpotCache;
+import com.maggu.maggu.map.client.ContentType;
+import com.maggu.maggu.map.client.TourSpot;
 import com.maggu.maggu.place.dto.request.PlaceScrapCreateRequest;
+import com.maggu.maggu.place.dto.response.PlaceFolderScrapsResponse;
 import com.maggu.maggu.place.dto.response.PlaceScrapCreateResponse;
+import com.maggu.maggu.place.dto.response.PlaceScrapResponse;
 import com.maggu.maggu.place.entity.PlaceFolder;
 import com.maggu.maggu.place.entity.PlaceScrap;
 import com.maggu.maggu.place.repository.PlaceFolderRepository;
@@ -23,15 +29,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceScrapServiceTest {
@@ -45,8 +54,143 @@ class PlaceScrapServiceTest {
     @Mock
     private StickerRepository stickerRepository;
 
+    @Mock
+    private TourSpotCache tourSpotCache;
+
     @InjectMocks
     private PlaceScrapService placeScrapService;
+
+    @Nested
+    @DisplayName("getPlaceScraps")
+    class GetPlaceScraps {
+
+        @Test
+        @DisplayName("본인 폴더면 폴더 정보, 장소 수, 리포지토리 순서(최신 저장순) 그대로의 스크랩 목록을 반환한다")
+        void returnsFolderInfoCountAndScrapsInRepositoryOrder() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            Sticker sticker = sticker(2L, user);
+            PlaceScrap newer = placeScrap(101L, user, "24680", sticker, folder);
+            PlaceScrap older = placeScrap(100L, user, "13579", sticker, folder);
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(newer, older));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "24680")).willReturn(Optional.of(tourSpot("24680", "해동용궁사")));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "13579")).willReturn(Optional.of(tourSpot("13579", "해운대해수욕장")));
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+
+            assertThat(result.totalScrapCount()).isEqualTo(2);
+            assertThat(result.placeFolder().placeFolderId()).isEqualTo(3L);
+            assertThat(result.placeFolder().name()).isEqualTo("가보고 싶은 곳");
+            assertThat(result.placeFolder().icon()).isEqualTo("✈️");
+            assertThat(result.placeFolder().isDefault()).isFalse();
+            assertThat(result.placeScraps())
+                    .extracting(PlaceScrapResponse::placeScrapId, PlaceScrapResponse::tourismContentId,
+                            PlaceScrapResponse::placeName, PlaceScrapResponse::stickerId)
+                    .containsExactly(
+                            tuple(101L, "24680", "해동용궁사", 2L),
+                            tuple(100L, "13579", "해운대해수욕장", 2L));
+        }
+
+        @Test
+        @DisplayName("요청한 언어의 캐시로 장소를 조회한다")
+        void looksUpCacheWithRequestedLocale() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            PlaceScrap scrap = placeScrap(100L, user, "264337", sticker(2L, user), folder);
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(scrap));
+            given(tourSpotCache.findByContentId(AppLocale.EN, "264337"))
+                    .willReturn(Optional.of(tourSpot("264337", "Gyeongbokgung Palace")));
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.EN);
+
+            assertThat(result.placeScraps()).extracting(PlaceScrapResponse::placeName)
+                    .containsExactly("Gyeongbokgung Palace");
+        }
+
+        @Test
+        @DisplayName("캐시에 없는 장소는 목록에서 빠지지 않고 장소명만 null로 반환한다")
+        void keepsScrapWithNullPlaceNameWhenCacheMisses() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            Sticker sticker = sticker(2L, user);
+            PlaceScrap cached = placeScrap(101L, user, "24680", sticker, folder);
+            PlaceScrap notCached = placeScrap(100L, user, "13579", sticker, folder);
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(cached, notCached));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "24680")).willReturn(Optional.of(tourSpot("24680", "해동용궁사")));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "13579")).willReturn(Optional.empty());
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+
+            assertThat(result.totalScrapCount()).isEqualTo(2);
+            assertThat(result.placeScraps())
+                    .extracting(PlaceScrapResponse::placeScrapId, PlaceScrapResponse::placeName)
+                    .containsExactly(tuple(101L, "해동용궁사"), tuple(100L, null));
+        }
+
+        @Test
+        @DisplayName("주소는 아직 캐시에 없어 항상 null로 반환한다")
+        void returnsNullPlaceAddress() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            PlaceScrap scrap = placeScrap(100L, user, "13579", sticker(2L, user), folder);
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(scrap));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "13579")).willReturn(Optional.of(tourSpot("13579", "해운대해수욕장")));
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+
+            assertThat(result.placeScraps()).extracting(PlaceScrapResponse::placeAddress).containsOnlyNulls();
+        }
+
+        @Test
+        @DisplayName("폴더에 저장된 장소가 없으면 개수 0과 빈 목록을 반환한다")
+        void returnsZeroCountAndEmptyListWhenFolderHasNoScraps() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of());
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+
+            assertThat(result.totalScrapCount()).isZero();
+            assertThat(result.placeScraps()).isEmpty();
+            assertThat(result.placeFolder().placeFolderId()).isEqualTo(3L);
+            verifyNoInteractions(tourSpotCache);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 폴더면 예외를 던지고 스크랩/캐시를 조회하지 않는다")
+        void throwsWhenPlaceFolderNotFound() {
+            AppUser user = appUserWithId(1L, "나그네");
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PLACE_FOLDER_NOT_FOUND));
+
+            verify(placeScrapRepository, never()).findAllByPlaceFolderOrderByCreatedAtDesc(any());
+            verifyNoInteractions(tourSpotCache);
+        }
+
+        @Test
+        @DisplayName("다른 유저 소유 폴더면 예외를 던지고 스크랩/캐시를 조회하지 않는다")
+        void throwsWhenPlaceFolderNotOwned() {
+            AppUser user = appUserWithId(1L, "나그네");
+            AppUser otherUser = appUserWithId(2L, "다른유저");
+            PlaceFolder folder = placeFolder(3L, otherUser, "남의 폴더", "📍", false);
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+
+            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PLACE_FOLDER_ACCESS_DENIED));
+
+            verify(placeScrapRepository, never()).findAllByPlaceFolderOrderByCreatedAtDesc(any());
+            verifyNoInteractions(tourSpotCache);
+        }
+    }
 
     @Nested
     @DisplayName("createPlaceScrap")
@@ -225,6 +369,17 @@ class PlaceScrapServiceTest {
         return folder;
     }
 
+    private PlaceScrap placeScrap(Long id, AppUser user, String tourismContentId, Sticker sticker, PlaceFolder folder) {
+        PlaceScrap scrap = PlaceScrap.builder()
+                .user(user)
+                .tourismContentId(tourismContentId)
+                .sticker(sticker)
+                .placeFolder(folder)
+                .build();
+        ReflectionTestUtils.setField(scrap, "id", id);
+        return scrap;
+    }
+
     private Sticker sticker(Long id, AppUser owner) {
         Sticker sticker = Sticker.builder()
                 .name(owner.getNickname() + "의 커스텀 스티커")
@@ -234,6 +389,10 @@ class PlaceScrapServiceTest {
                 .build();
         ReflectionTestUtils.setField(sticker, "id", id);
         return sticker;
+    }
+
+    private TourSpot tourSpot(String contentId, String title) {
+        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, title, 129.0, 35.0);
     }
 
     private Sticker giphySticker(Long id) {

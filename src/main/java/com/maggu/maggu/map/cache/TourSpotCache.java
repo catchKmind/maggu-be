@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
@@ -75,6 +76,12 @@ public class TourSpotCache {
                 .filter(spot -> spot.title().contains(keyword))
                 .limit(limit)
                 .toList();
+    }
+
+    public Optional<TourSpot> findByContentId(AppLocale locale, String contentId) {
+        String key = key(locale, contentId);
+
+        return Optional.ofNullable(cache.getIfPresent(key));
     }
 
     private String key(AppLocale locale, String contentId) {
