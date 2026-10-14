@@ -11,10 +11,10 @@ public record PlaceScrapResponse(
         @Schema(description = "관광공사 콘텐츠 ID", example = "13579")
         String tourismContentId,
 
-        @Schema(description = "장소명, 캐시에 없는 장소면 null, 다른 언어로 저장한 장소도 null")
+        @Schema(description = "장소명, 캐시에 없는 장소거나 다른 언어로 저장한 장소면 null")
         String placeName,
 
-        @Schema(description = "주소, 현재는 항상 null, 후속 PR에서-!")
+        @Schema(description = "주소, 캐시에 없는 장소거나 다른 언어로 저장한 장소면 null")
         String placeAddress,
 
         @Schema(description = "스티커 ID")
