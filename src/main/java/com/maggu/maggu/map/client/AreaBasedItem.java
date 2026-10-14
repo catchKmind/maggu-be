@@ -17,6 +17,10 @@ record AreaBasedItem(
 
         String title,
 
+        String addr1,
+
+        String addr2,
+
         @JsonProperty("mapx")
         String mapX,
 

@@ -10,6 +10,8 @@ public record TourSpot(
 
         String title,
 
+        String address,
+
         Double mapX,
 
         Double mapY
