@@ -113,6 +113,7 @@ class TourApiClientTest {
 
             assertThat(detail.title()).isEqualTo("테스트장소");
             assertThat(detail.tel()).isEqualTo("02-1234-5678");
+            assertThat(detail.addr()).isEqualTo("서울 용산구 남산공원길 105");
             assertThat(detail.businessHours()).isNull();
             assertThat(detail.closedDays()).isNull();
             mockServer.verify();
@@ -308,6 +309,52 @@ class TourApiClientTest {
             assertThat(result).extracting(TourSpot::contentId).containsExactly("1");
             mockServer.verify();
         }
+
+        @Test
+        @DisplayName("addr2가 비어 있으면 addr1만, 값이 있으면 addr1과 공백으로 이어 붙여 address에 담는다")
+        void joinsAddr1AndAddr2IntoAddress() {
+            expectAreaBasedList(areaBasedListJson(List.of(
+                    areaItemJson("1", "12", "경상북도 경주시 도초길 124-31", ""),
+                    areaItemJson("2", "12", "경상북도 경주시 도초길 124-31", "(율동)"))));
+
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+
+            assertThat(result).extracting(TourSpot::address)
+                    .containsExactly("경상북도 경주시 도초길 124-31", "경상북도 경주시 도초길 124-31 (율동)");
+            mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("응답에 주소 필드가 없으면 address는 null이다")
+        void leavesAddressNullWhenAbsent() {
+            expectAreaBasedList(areaBasedListJson(List.of(areaItemJson("1", "12"))));
+
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+
+            assertThat(result).extracting(TourSpot::address).containsOnlyNulls();
+            mockServer.verify();
+        }
+    }
+
+    @Nested
+    @DisplayName("findByLocation")
+    class FindByLocation {
+
+        @Test
+        @DisplayName("locationBasedList2 응답의 addr1/addr2를 이어 붙여 address에 담는다")
+        void joinsAddr1AndAddr2IntoAddress() {
+            mockServer.expect(requestTo(containsString("/locationBasedList2")))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withSuccess(areaBasedListJson(List.of(
+                            areaItemJson("1", "12", "경상북도 경주시 삼릉2길 21", ""),
+                            areaItemJson("2", "39", "경상북도 경주시 도초길 124-31", "(율동)"))), MediaType.APPLICATION_JSON));
+
+            List<TourSpot> result = tourApiClient.findByLocation(129.2, 35.8, 2000, null, 10);
+
+            assertThat(result).extracting(TourSpot::address)
+                    .containsExactly("경상북도 경주시 삼릉2길 21", "경상북도 경주시 도초길 124-31 (율동)");
+            mockServer.verify();
+        }
     }
 
     private void expectAreaBasedList(String responseJson) {
@@ -326,6 +373,12 @@ class TourApiClientTest {
         return """
                 {"contentid":"%s","contenttypeid":"%s","title":"장소%s","mapx":"128.6","mapy":"36.0"}
                 """.formatted(contentId, contentTypeId, contentId);
+    }
+
+    private String areaItemJson(String contentId, String contentTypeId, String addr1, String addr2) {
+        return """
+                {"contentid":"%s","contenttypeid":"%s","title":"장소%s","addr1":"%s","addr2":"%s","mapx":"128.6","mapy":"36.0"}
+                """.formatted(contentId, contentTypeId, contentId, addr1, addr2);
     }
 
     private void expectSearchFestival(String responseJson) {

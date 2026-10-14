@@ -63,7 +63,7 @@ class MapServiceTest {
         @Test
         @DisplayName("bbox 안의 스팟을 GeoJSON FeatureCollection으로 변환해 반환한다")
         void getMapSpots() {
-            TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "남산타워", 127.05, 37.55);
+            TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "남산타워", null, 127.05, 37.55);
             given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
 
             MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
@@ -84,7 +84,7 @@ class MapServiceTest {
         @Test
         @DisplayName("진행 중인 축제 contentId면 isOngoingEvent가 true다")
         void marksOngoingFestivalAsOngoingEvent() {
-            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "막꾸 축제", 127.05, 37.55);
+            TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "막꾸 축제", null, 127.05, 37.55);
             given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
             given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
 
@@ -359,7 +359,7 @@ class MapServiceTest {
     class GetMapSpotDetail {
 
         @Test
-        @DisplayName("TourAPI 조회 결과를 그대로 반환하고, 그 스팟을 TourSpotCache에 upsert한다")
+        @DisplayName("TourAPI 조회 결과를 그대로 반환하고, 그 스팟(주소 포함)을 TourSpotCache에 upsert한다")
         void returnsDetailAndUpsertsCache() {
             MapSpotDetail detail = new MapSpotDetail(
                     "126234", ContentType.TOURIST_ATTRACTION, "02-1234-5678", "남산타워",
@@ -378,6 +378,7 @@ class MapServiceTest {
             assertThat(cached.contentId()).isEqualTo("126234");
             assertThat(cached.contentType()).isEqualTo(ContentType.TOURIST_ATTRACTION);
             assertThat(cached.title()).isEqualTo("남산타워");
+            assertThat(cached.address()).isEqualTo("서울 용산구 남산공원길 105");
             assertThat(cached.mapX()).isEqualTo(127.05);
             assertThat(cached.mapY()).isEqualTo(37.55);
         }

@@ -110,7 +110,7 @@ class PlaceScrapServiceTest {
         }
 
         @Test
-        @DisplayName("캐시에 없는 장소는 목록에서 빠지지 않고 장소명만 null로 반환한다")
+        @DisplayName("캐시에 없는 장소는 목록에서 빠지지 않고 장소명/주소만 null로 반환한다")
         void keepsScrapWithNullPlaceNameWhenCacheMisses() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
@@ -126,23 +126,25 @@ class PlaceScrapServiceTest {
 
             assertThat(result.totalScrapCount()).isEqualTo(2);
             assertThat(result.placeScraps())
-                    .extracting(PlaceScrapResponse::placeScrapId, PlaceScrapResponse::placeName)
-                    .containsExactly(tuple(101L, "해동용궁사"), tuple(100L, null));
+                    .extracting(PlaceScrapResponse::placeScrapId, PlaceScrapResponse::placeName, PlaceScrapResponse::placeAddress)
+                    .containsExactly(tuple(101L, "해동용궁사", null), tuple(100L, null, null));
         }
 
         @Test
-        @DisplayName("주소는 아직 캐시에 없어 항상 null로 반환한다")
-        void returnsNullPlaceAddress() {
+        @DisplayName("캐시에 있는 장소는 캐시의 주소로 placeAddress를 채운다")
+        void fillsPlaceAddressFromCache() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             PlaceScrap scrap = placeScrap(100L, user, "13579", sticker(2L, user), folder);
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
             given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(scrap));
-            given(tourSpotCache.findByContentId(AppLocale.KO, "13579")).willReturn(Optional.of(tourSpot("13579", "해운대해수욕장")));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "13579"))
+                    .willReturn(Optional.of(tourSpot("13579", "해운대해수욕장", "부산광역시 해운대구 우동")));
 
             PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
 
-            assertThat(result.placeScraps()).extracting(PlaceScrapResponse::placeAddress).containsOnlyNulls();
+            assertThat(result.placeScraps()).extracting(PlaceScrapResponse::placeAddress)
+                    .containsExactly("부산광역시 해운대구 우동");
         }
 
         @Test
@@ -392,7 +394,11 @@ class PlaceScrapServiceTest {
     }
 
     private TourSpot tourSpot(String contentId, String title) {
-        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, title, 129.0, 35.0);
+        return tourSpot(contentId, title, null);
+    }
+
+    private TourSpot tourSpot(String contentId, String title, String address) {
+        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, title, address, 129.0, 35.0);
     }
 
     private Sticker giphySticker(Long id) {

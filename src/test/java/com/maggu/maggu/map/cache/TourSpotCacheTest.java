@@ -200,6 +200,6 @@ class TourSpotCacheTest {
     }
 
     private TourSpot spot(String contentId, String title, double mapX, double mapY) {
-        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, title, mapX, mapY);
+        return new TourSpot(contentId, ContentType.TOURIST_ATTRACTION, title, null, mapX, mapY);
     }
 }

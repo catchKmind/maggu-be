@@ -68,7 +68,7 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("캐시에서 매칭된 스팟을 자동완성 후보 응답으로 변환해 반환한다")
         void returnsCandidatesConvertedFromMatchedSpots() {
-            TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "해운대해수욕장", 129.16, 35.16);
+            TourSpot spot = new TourSpot("126234", ContentType.TOURIST_ATTRACTION, "해운대해수욕장", null, 129.16, 35.16);
             given(tourSpotCache.findByKeyword(AppLocale.KO, KEYWORD, AUTOCOMPLETE_MAX_RESULTS)).willReturn(List.of(spot));
 
             List<AutocompleteCandidateResponse> result = mapSearchService.getAutocompleteCandidates(KEYWORD);
