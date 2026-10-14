@@ -160,6 +160,7 @@ public class MapService {
                 .contentId(mapSpotDetail.contentId())
                 .contentType(mapSpotDetail.contentType())
                 .title(mapSpotDetail.title())
+                .address(mapSpotDetail.addr())
                 .mapX(mapSpotDetail.lng())
                 .mapY(mapSpotDetail.lat())
                 .build();

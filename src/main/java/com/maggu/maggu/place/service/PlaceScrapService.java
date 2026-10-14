@@ -97,7 +97,7 @@ public class PlaceScrapService {
                 .placeScrapId(placeScrap.getId())
                 .tourismContentId(placeScrap.getTourismContentId())
                 .placeName(spot == null ? null : spot.title())
-                // TODO: .placeAddress(spot == null ? null : spot.address()) 추가
+                .placeAddress(spot == null ? null : spot.address())
                 .stickerId(placeScrap.getSticker().getId())
                 .build();
     }

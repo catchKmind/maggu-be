@@ -492,6 +492,7 @@ public class TourApiClient {
                     item.contentId(),
                     ContentType.fromId(Integer.parseInt(item.contentTypeId())),
                     item.title(),
+                    joinAddress(item.addr1(), item.addr2()),
                     Double.parseDouble(item.mapX()),
                     Double.parseDouble(item.mapY())
             );
@@ -523,6 +524,7 @@ public class TourApiClient {
                 item.contentId(),
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
                 item.title(),
+                joinAddress(item.addr1(), item.addr2()),
                 Double.parseDouble(item.mapX()),
                 Double.parseDouble(item.mapY())
         );
@@ -537,9 +539,7 @@ public class TourApiClient {
                 ContentType.fromId(Integer.parseInt(item.contentTypeId())),
                 tel,
                 item.title(),
-                item.addr2() == null || item.addr2().isBlank()
-                        ? item.addr1()
-                        : item.addr1() + " " + item.addr2(),
+                joinAddress(item.addr1(), item.addr2()),
                 images,
                 businessHours,
                 closedDays,
@@ -547,5 +547,11 @@ public class TourApiClient {
                 Double.parseDouble(item.mapX()),
                 Double.parseDouble(item.mapY())
         );
+    }
+
+    private static String joinAddress(String addr1, String addr2) {
+        return addr2 == null || addr2.isBlank()
+                ? addr1
+                : addr1 + " " + addr2;
     }
 }
