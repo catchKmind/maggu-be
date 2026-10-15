@@ -3,6 +3,7 @@ package com.maggu.maggu.place.service;
 import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.map.cache.TourSpotCache;
 import com.maggu.maggu.map.client.TourSpot;
 import com.maggu.maggu.place.dto.request.PlaceScrapCreateRequest;
@@ -22,6 +23,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 
@@ -61,25 +63,28 @@ public class PlaceScrapService {
     }
 
     @Transactional(readOnly = true)
-    public PlaceFolderScrapsResponse getPlaceScraps(AppUser user, Long placeFolderId, AppLocale locale) {
+    public PlaceFolderScrapsResponse getPlaceScraps(
+            AppUser user, Long placeFolderId, AppLocale locale, String cursor, int size
+    ) {
+        PlaceScrapCursor decodedCursor = (cursor == null) ? null : PlaceScrapCursor.decode(cursor);
+        Instant createdAt = (decodedCursor == null) ? null : decodedCursor.createdAt();
+        Long cursorId = (decodedCursor == null) ? null : decodedCursor.id();
+
         PlaceFolder placeFolder = resolvePlaceFolder(user, placeFolderId);
 
-        List<PlaceScrap> placeScraps = placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(placeFolder);
+        List<PlaceScrap> fetched = placeScrapRepository.findPageByPlaceFolderId(placeFolder.getId(), createdAt, cursorId, size + 1);
 
-        int totalCount = placeScraps.size();
-
-        List<PlaceScrapResponse> placeScrapResponses = placeScraps.stream()
+        CursorPageResponse<PlaceScrapResponse> page = CursorPageResponse.of(fetched, size, scrap -> PlaceScrapCursor.from(scrap).encode())
                 .map(scrap -> {
                     TourSpot spot = tourSpotCache.findByContentId(locale, scrap.getTourismContentId())
                             .orElse(null); // 캐시에 없으면 null
                     return toResponse(scrap, spot);
-                })
-                .toList();
+                });
 
         return PlaceFolderScrapsResponse.builder()
-                .totalScrapCount(totalCount)
+                .totalScrapCount(placeScrapRepository.countByPlaceFolder(placeFolder))
                 .placeFolder(PlaceFolderResponse.from(placeFolder))
-                .placeScraps(placeScrapResponses)
+                .placeScraps(page)
                 .build();
     }
 
