@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class PlaceScrapController {
 
+    private static final int MAX_FEED_SIZE = 100;
+
     private final PlaceScrapService placeScrapService;
     private final RequestLocaleResolver requestLocaleResolver;
 
@@ -39,8 +41,14 @@ public class PlaceScrapController {
     public PlaceFolderScrapsResponse getPlaceScraps(
             @CurrentUser AppUser user,
             @PathVariable Long placeFolderId,
-            @Parameter(description = "TourAPI 언어. KO/EN. 생략 시 유저 locale 또는 KO") @RequestParam(required = false) String lang
+            @Parameter(description = "TourAPI 언어. KO/EN. 생략 시 유저 locale 또는 KO") @RequestParam(required = false) String lang,
+            @Parameter(description = "다음 페이지 커서. 첫 요청은 생략하고, 이후에는 직전 응답의 placeScraps.nextCursor를 그대로 넣는다. hasNext가 false면 더 요청하지 않는다")
+            @RequestParam(required = false) String cursor,
+            @Parameter(description = "페이지 크기. 기본 20, 1~100 범위를 벗어나면 가까운 값으로 보정")
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return placeScrapService.getPlaceScraps(user, placeFolderId, requestLocaleResolver.resolve(lang));
+        int clampSize = Math.max(1, Math.min(size, MAX_FEED_SIZE));
+
+        return placeScrapService.getPlaceScraps(user, placeFolderId, requestLocaleResolver.resolve(lang), cursor, clampSize);
     }
 }

@@ -6,6 +6,7 @@ import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.i18n.RequestLocaleResolver;
+import com.maggu.maggu.global.response.CursorPageResponse;
 import com.maggu.maggu.global.security.CustomUserDetails;
 import com.maggu.maggu.global.security.jwt.JwtAuthenticationFilter;
 import com.maggu.maggu.place.dto.request.PlaceScrapCreateRequest;
@@ -35,7 +36,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
@@ -221,48 +224,84 @@ class PlaceScrapControllerTest {
     @DisplayName("GET /api/v1/my-places/folders/{placeFolderId}/scraps")
     class GetPlaceScraps {
 
-        @Test
-        @DisplayName("본인 폴더면 폴더 정보, 장소 수, 장소 스크랩 목록을 반환한다")
-        void returnsPlaceFolderScraps() throws Exception {
-            authenticateAs(appUser(1L, "나그네"));
-            given(placeScrapService.getPlaceScraps(any(), eq(3L), eq(AppLocale.KO))).willReturn(
-                    PlaceFolderScrapsResponse.builder()
-                            .totalScrapCount(2)
-                            .placeFolder(PlaceFolderResponse.builder()
-                                    .placeFolderId(3L).name("가보고 싶은 곳").icon("✈️").isDefault(false).build())
-                            .placeScraps(List.of(
-                                    PlaceScrapResponse.builder()
-                                            .placeScrapId(101L).tourismContentId("24680").placeName("해동용궁사").stickerId(2L).build(),
-                                    PlaceScrapResponse.builder()
-                                            .placeScrapId(100L).tourismContentId("13579").stickerId(2L).build()))
-                            .build());
+        private static final String URL = "/api/v1/my-places/folders/{placeFolderId}/scraps";
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L))
+        @Test
+        @DisplayName("폴더 정보, 전체 개수, 현재 페이지(content/nextCursor/hasNext)를 반환한다")
+        void returnsPlaceFolderScrapsPage() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), eq(AppLocale.KO), isNull(), eq(20))).willReturn(
+                    response(57, new CursorPageResponse<>(List.of(
+                            PlaceScrapResponse.builder()
+                                    .placeScrapId(101L).tourismContentId("24680").placeName("해동용궁사")
+                                    .placeAddress("부산광역시 기장군 기장읍 용궁길 86").stickerId(2L).build(),
+                            PlaceScrapResponse.builder()
+                                    .placeScrapId(100L).tourismContentId("13579").stickerId(2L).build()),
+                            "next-cursor", true)));
+
+            mockMvc.perform(get(URL, 3L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.totalScrapCount").value(2))
+                    .andExpect(jsonPath("$.data.totalScrapCount").value(57))
                     .andExpect(jsonPath("$.data.placeFolder.placeFolderId").value(3))
                     .andExpect(jsonPath("$.data.placeFolder.name").value("가보고 싶은 곳"))
                     .andExpect(jsonPath("$.data.placeFolder.icon").value("✈️"))
-                    .andExpect(jsonPath("$.data.placeScraps.length()").value(2))
-                    .andExpect(jsonPath("$.data.placeScraps[0].placeScrapId").value(101))
-                    .andExpect(jsonPath("$.data.placeScraps[0].tourismContentId").value("24680"))
-                    .andExpect(jsonPath("$.data.placeScraps[0].placeName").value("해동용궁사"))
-                    .andExpect(jsonPath("$.data.placeScraps[0].stickerId").value(2))
-                    .andExpect(jsonPath("$.data.placeScraps[1].placeName").doesNotExist());
+                    .andExpect(jsonPath("$.data.placeScraps.content.length()").value(2))
+                    .andExpect(jsonPath("$.data.placeScraps.content[0].placeScrapId").value(101))
+                    .andExpect(jsonPath("$.data.placeScraps.content[0].placeName").value("해동용궁사"))
+                    .andExpect(jsonPath("$.data.placeScraps.content[0].placeAddress").value("부산광역시 기장군 기장읍 용궁길 86"))
+                    .andExpect(jsonPath("$.data.placeScraps.content[0].stickerId").value(2))
+                    .andExpect(jsonPath("$.data.placeScraps.content[1].placeName").doesNotExist())
+                    .andExpect(jsonPath("$.data.placeScraps.nextCursor").value("next-cursor"))
+                    .andExpect(jsonPath("$.data.placeScraps.hasNext").value(true));
+        }
+
+        @Test
+        @DisplayName("cursor와 size를 서비스에 그대로 전달한다")
+        void passesCursorAndSize() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), any(), eq("abc"), eq(10))).willReturn(emptyResponse());
+
+            mockMvc.perform(get(URL, 3L).param("cursor", "abc").param("size", "10"))
+                    .andExpect(status().isOk());
+
+            verify(placeScrapService).getPlaceScraps(any(), eq(3L), any(), eq("abc"), eq(10));
+        }
+
+        @Test
+        @DisplayName("size가 100을 넘으면 100으로 보정한다")
+        void clampsSizeToMax() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), any(), isNull(), eq(100))).willReturn(emptyResponse());
+
+            mockMvc.perform(get(URL, 3L).param("size", "500"))
+                    .andExpect(status().isOk());
+
+            verify(placeScrapService).getPlaceScraps(any(), eq(3L), any(), isNull(), eq(100));
+        }
+
+        @Test
+        @DisplayName("size가 1보다 작으면 1로 보정한다")
+        void clampsSizeToMin() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), any(), isNull(), eq(1))).willReturn(emptyResponse());
+
+            mockMvc.perform(get(URL, 3L).param("size", "0"))
+                    .andExpect(status().isOk());
+
+            verify(placeScrapService).getPlaceScraps(any(), eq(3L), any(), isNull(), eq(1));
         }
 
         @Test
         @DisplayName("lang=EN이면 서비스에 EN locale을 전달한다")
         void passesEnglishLocaleWhenLangIsEn() throws Exception {
             authenticateAs(appUser(1L, "나그네"));
-            given(placeScrapService.getPlaceScraps(any(), eq(3L), eq(AppLocale.EN))).willReturn(emptyResponse());
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), eq(AppLocale.EN), isNull(), eq(20))).willReturn(emptyResponse());
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L)
-                            .param("lang", "EN"))
+            mockMvc.perform(get(URL, 3L).param("lang", "EN"))
                     .andExpect(status().isOk());
 
-            verify(placeScrapService).getPlaceScraps(any(), eq(3L), eq(AppLocale.EN));
+            verify(placeScrapService).getPlaceScraps(any(), eq(3L), eq(AppLocale.EN), isNull(), eq(20));
         }
 
         @Test
@@ -271,12 +310,12 @@ class PlaceScrapControllerTest {
             AppUser user = appUser(1L, "나그네");
             user.changeLocale(AppLocale.EN);
             authenticateAs(user);
-            given(placeScrapService.getPlaceScraps(any(), eq(3L), eq(AppLocale.EN))).willReturn(emptyResponse());
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), eq(AppLocale.EN), isNull(), eq(20))).willReturn(emptyResponse());
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L))
+            mockMvc.perform(get(URL, 3L))
                     .andExpect(status().isOk());
 
-            verify(placeScrapService).getPlaceScraps(any(), eq(3L), eq(AppLocale.EN));
+            verify(placeScrapService).getPlaceScraps(any(), eq(3L), eq(AppLocale.EN), isNull(), eq(20));
         }
 
         @Test
@@ -284,8 +323,7 @@ class PlaceScrapControllerTest {
         void returnsBadRequestWhenLangUnsupported() throws Exception {
             authenticateAs(appUser(1L, "나그네"));
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L)
-                            .param("lang", "JP"))
+            mockMvc.perform(get(URL, 3L).param("lang", "JP"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("COMMON-001"));
 
@@ -293,16 +331,29 @@ class PlaceScrapControllerTest {
         }
 
         @Test
-        @DisplayName("저장된 장소가 없으면 개수 0과 빈 배열을 반환한다")
-        void returnsEmptyArrayWhenNoScraps() throws Exception {
+        @DisplayName("잘못된 커서면 400을 반환한다")
+        void returnsBadRequestWhenCursorInvalid() throws Exception {
             authenticateAs(appUser(1L, "나그네"));
-            given(placeScrapService.getPlaceScraps(any(), eq(3L), any())).willReturn(emptyResponse());
+            willThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
+                    .given(placeScrapService).getPlaceScraps(any(), eq(3L), any(), eq("broken"), anyInt());
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L))
+            mockMvc.perform(get(URL, 3L).param("cursor", "broken"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON-001"));
+        }
+
+        @Test
+        @DisplayName("저장된 장소가 없으면 빈 페이지와 개수 0을 반환한다")
+        void returnsEmptyPageWhenNoScraps() throws Exception {
+            authenticateAs(appUser(1L, "나그네"));
+            given(placeScrapService.getPlaceScraps(any(), eq(3L), any(), isNull(), eq(20))).willReturn(emptyResponse());
+
+            mockMvc.perform(get(URL, 3L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.totalScrapCount").value(0))
-                    .andExpect(jsonPath("$.data.placeScraps").isArray())
-                    .andExpect(jsonPath("$.data.placeScraps").isEmpty());
+                    .andExpect(jsonPath("$.data.placeScraps.content").isEmpty())
+                    .andExpect(jsonPath("$.data.placeScraps.hasNext").value(false))
+                    .andExpect(jsonPath("$.data.placeScraps.nextCursor").doesNotExist());
         }
 
         @Test
@@ -310,9 +361,9 @@ class PlaceScrapControllerTest {
         void returnsNotFoundWhenPlaceFolderMissing() throws Exception {
             authenticateAs(appUser(1L, "나그네"));
             willThrow(new BusinessException(ErrorCode.PLACE_FOLDER_NOT_FOUND))
-                    .given(placeScrapService).getPlaceScraps(any(), eq(3L), any());
+                    .given(placeScrapService).getPlaceScraps(any(), eq(3L), any(), any(), anyInt());
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L))
+            mockMvc.perform(get(URL, 3L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("PLACE-002"));
         }
@@ -322,9 +373,9 @@ class PlaceScrapControllerTest {
         void returnsForbiddenWhenPlaceFolderNotOwned() throws Exception {
             authenticateAs(appUser(1L, "나그네"));
             willThrow(new BusinessException(ErrorCode.PLACE_FOLDER_ACCESS_DENIED))
-                    .given(placeScrapService).getPlaceScraps(any(), eq(3L), any());
+                    .given(placeScrapService).getPlaceScraps(any(), eq(3L), any(), any(), anyInt());
 
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L))
+            mockMvc.perform(get(URL, 3L))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("PLACE-003"));
         }
@@ -332,7 +383,7 @@ class PlaceScrapControllerTest {
         @Test
         @DisplayName("인증 정보가 없으면 401을 반환하고 서비스는 호출하지 않는다")
         void returnsUnauthorizedWhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/api/v1/my-places/folders/{placeFolderId}/scraps", 3L))
+            mockMvc.perform(get(URL, 3L))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("AUTH-002"));
 
@@ -340,11 +391,15 @@ class PlaceScrapControllerTest {
         }
 
         private PlaceFolderScrapsResponse emptyResponse() {
+            return response(0, new CursorPageResponse<>(List.of(), null, false));
+        }
+
+        private PlaceFolderScrapsResponse response(int totalScrapCount, CursorPageResponse<PlaceScrapResponse> page) {
             return PlaceFolderScrapsResponse.builder()
-                    .totalScrapCount(0)
+                    .totalScrapCount(totalScrapCount)
                     .placeFolder(PlaceFolderResponse.builder()
                             .placeFolderId(3L).name("가보고 싶은 곳").icon("✈️").isDefault(false).build())
-                    .placeScraps(List.of())
+                    .placeScraps(page)
                     .build();
         }
     }

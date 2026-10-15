@@ -29,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,32 +65,112 @@ class PlaceScrapServiceTest {
     @DisplayName("getPlaceScraps")
     class GetPlaceScraps {
 
+        private static final int SIZE = 2;
+
         @Test
-        @DisplayName("본인 폴더면 폴더 정보, 장소 수, 리포지토리 순서(최신 저장순) 그대로의 스크랩 목록을 반환한다")
-        void returnsFolderInfoCountAndScrapsInRepositoryOrder() {
+        @DisplayName("size+1개가 조회되면 size개만 담고 hasNext=true, 마지막 항목으로 nextCursor를 만든다")
+        void returnsFirstPageWithNextCursorWhenMoreExists() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             Sticker sticker = sticker(2L, user);
-            PlaceScrap newer = placeScrap(101L, user, "24680", sticker, folder);
-            PlaceScrap older = placeScrap(100L, user, "13579", sticker, folder);
+            PlaceScrap first = placeScrap(103L, user, "33333", sticker, folder, Instant.parse("2026-10-03T00:00:00Z"));
+            PlaceScrap second = placeScrap(102L, user, "22222", sticker, folder, Instant.parse("2026-10-02T00:00:00Z"));
+            PlaceScrap extra = placeScrap(101L, user, "11111", sticker, folder, Instant.parse("2026-10-01T00:00:00Z"));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
-            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(newer, older));
-            given(tourSpotCache.findByContentId(AppLocale.KO, "24680")).willReturn(Optional.of(tourSpot("24680", "해동용궁사")));
-            given(tourSpotCache.findByContentId(AppLocale.KO, "13579")).willReturn(Optional.of(tourSpot("13579", "해운대해수욕장")));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(first, second, extra));
+            given(placeScrapRepository.countByPlaceFolder(folder)).willReturn(3L);
 
-            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
 
-            assertThat(result.totalScrapCount()).isEqualTo(2);
+            assertThat(result.placeScraps().getContent()).extracting(PlaceScrapResponse::placeScrapId)
+                    .containsExactly(103L, 102L);
+            assertThat(result.placeScraps().isHasNext()).isTrue();
+            assertThat(result.placeScraps().getNextCursor()).isEqualTo(PlaceScrapCursor.from(second).encode());
+        }
+
+        @Test
+        @DisplayName("확인용으로 더 가져온 1건은 캐시 조회를 하지 않는다")
+        void doesNotLookUpCacheForExtraFetchedItem() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            Sticker sticker = sticker(2L, user);
+            PlaceScrap first = placeScrap(103L, user, "33333", sticker, folder, Instant.parse("2026-10-03T00:00:00Z"));
+            PlaceScrap second = placeScrap(102L, user, "22222", sticker, folder, Instant.parse("2026-10-02T00:00:00Z"));
+            PlaceScrap extra = placeScrap(101L, user, "11111", sticker, folder, Instant.parse("2026-10-01T00:00:00Z"));
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(first, second, extra));
+
+            placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
+
+            verify(tourSpotCache, never()).findByContentId(AppLocale.KO, "11111");
+        }
+
+        @Test
+        @DisplayName("size개 이하로 조회되면 마지막 페이지라 hasNext=false, nextCursor는 null이다")
+        void returnsLastPageWithoutNextCursor() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            PlaceScrap only = placeScrap(101L, user, "11111", sticker(2L, user), folder, Instant.parse("2026-10-01T00:00:00Z"));
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(only));
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
+
+            assertThat(result.placeScraps().getContent()).hasSize(1);
+            assertThat(result.placeScraps().isHasNext()).isFalse();
+            assertThat(result.placeScraps().getNextCursor()).isNull();
+        }
+
+        @Test
+        @DisplayName("커서가 있으면 디코딩한 createdAt/id를 리포지토리에 넘긴다")
+        void passesDecodedCursorToRepository() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            Instant cursorCreatedAt = Instant.parse("2026-10-02T00:00:00Z");
+            String cursor = new PlaceScrapCursor(cursorCreatedAt, 102L).encode();
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, cursorCreatedAt, 102L, SIZE + 1)).willReturn(List.of());
+
+            placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, cursor, SIZE);
+
+            verify(placeScrapRepository).findPageByPlaceFolderId(3L, cursorCreatedAt, 102L, SIZE + 1);
+        }
+
+        @Test
+        @DisplayName("totalScrapCount는 현재 페이지 크기가 아니라 폴더 전체 개수다")
+        void totalScrapCountIsWholeFolderCount() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            PlaceScrap only = placeScrap(101L, user, "11111", sticker(2L, user), folder, Instant.parse("2026-10-01T00:00:00Z"));
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(only));
+            given(placeScrapRepository.countByPlaceFolder(folder)).willReturn(57L);
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
+
+            assertThat(result.totalScrapCount()).isEqualTo(57);
+        }
+
+        @Test
+        @DisplayName("폴더 정보와 장소명/주소/스티커 ID를 응답으로 조립한다")
+        void assemblesFolderInfoAndPlaceFields() {
+            AppUser user = appUserWithId(1L, "나그네");
+            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
+            PlaceScrap scrap = placeScrap(101L, user, "13579", sticker(2L, user), folder, Instant.parse("2026-10-01T00:00:00Z"));
+            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(scrap));
+            given(tourSpotCache.findByContentId(AppLocale.KO, "13579"))
+                    .willReturn(Optional.of(tourSpot("13579", "해운대해수욕장", "부산광역시 해운대구 우동")));
+
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
+
             assertThat(result.placeFolder().placeFolderId()).isEqualTo(3L);
             assertThat(result.placeFolder().name()).isEqualTo("가보고 싶은 곳");
             assertThat(result.placeFolder().icon()).isEqualTo("✈️");
-            assertThat(result.placeFolder().isDefault()).isFalse();
-            assertThat(result.placeScraps())
+            assertThat(result.placeScraps().getContent())
                     .extracting(PlaceScrapResponse::placeScrapId, PlaceScrapResponse::tourismContentId,
-                            PlaceScrapResponse::placeName, PlaceScrapResponse::stickerId)
-                    .containsExactly(
-                            tuple(101L, "24680", "해동용궁사", 2L),
-                            tuple(100L, "13579", "해운대해수욕장", 2L));
+                            PlaceScrapResponse::placeName, PlaceScrapResponse::placeAddress, PlaceScrapResponse::stickerId)
+                    .containsExactly(tuple(101L, "13579", "해운대해수욕장", "부산광역시 해운대구 우동", 2L));
         }
 
         @Test
@@ -97,70 +178,62 @@ class PlaceScrapServiceTest {
         void looksUpCacheWithRequestedLocale() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
-            PlaceScrap scrap = placeScrap(100L, user, "264337", sticker(2L, user), folder);
+            PlaceScrap scrap = placeScrap(101L, user, "264337", sticker(2L, user), folder, Instant.parse("2026-10-01T00:00:00Z"));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
-            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(scrap));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(scrap));
             given(tourSpotCache.findByContentId(AppLocale.EN, "264337"))
                     .willReturn(Optional.of(tourSpot("264337", "Gyeongbokgung Palace")));
 
-            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.EN);
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.EN, null, SIZE);
 
-            assertThat(result.placeScraps()).extracting(PlaceScrapResponse::placeName)
+            assertThat(result.placeScraps().getContent()).extracting(PlaceScrapResponse::placeName)
                     .containsExactly("Gyeongbokgung Palace");
         }
 
         @Test
-        @DisplayName("캐시에 없는 장소는 목록에서 빠지지 않고 장소명/주소만 null로 반환한다")
-        void keepsScrapWithNullPlaceNameWhenCacheMisses() {
+        @DisplayName("캐시에 없는 장소는 페이지에서 빠지지 않고 장소명/주소만 null로 반환한다")
+        void keepsScrapWithNullPlaceFieldsWhenCacheMisses() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
-            Sticker sticker = sticker(2L, user);
-            PlaceScrap cached = placeScrap(101L, user, "24680", sticker, folder);
-            PlaceScrap notCached = placeScrap(100L, user, "13579", sticker, folder);
+            PlaceScrap scrap = placeScrap(101L, user, "13579", sticker(2L, user), folder, Instant.parse("2026-10-01T00:00:00Z"));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
-            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(cached, notCached));
-            given(tourSpotCache.findByContentId(AppLocale.KO, "24680")).willReturn(Optional.of(tourSpot("24680", "해동용궁사")));
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of(scrap));
             given(tourSpotCache.findByContentId(AppLocale.KO, "13579")).willReturn(Optional.empty());
 
-            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
 
-            assertThat(result.totalScrapCount()).isEqualTo(2);
-            assertThat(result.placeScraps())
+            assertThat(result.placeScraps().getContent())
                     .extracting(PlaceScrapResponse::placeScrapId, PlaceScrapResponse::placeName, PlaceScrapResponse::placeAddress)
-                    .containsExactly(tuple(101L, "해동용궁사", null), tuple(100L, null, null));
+                    .containsExactly(tuple(101L, null, null));
         }
 
         @Test
-        @DisplayName("캐시에 있는 장소는 캐시의 주소로 placeAddress를 채운다")
-        void fillsPlaceAddressFromCache() {
-            AppUser user = appUserWithId(1L, "나그네");
-            PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
-            PlaceScrap scrap = placeScrap(100L, user, "13579", sticker(2L, user), folder);
-            given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
-            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of(scrap));
-            given(tourSpotCache.findByContentId(AppLocale.KO, "13579"))
-                    .willReturn(Optional.of(tourSpot("13579", "해운대해수욕장", "부산광역시 해운대구 우동")));
-
-            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
-
-            assertThat(result.placeScraps()).extracting(PlaceScrapResponse::placeAddress)
-                    .containsExactly("부산광역시 해운대구 우동");
-        }
-
-        @Test
-        @DisplayName("폴더에 저장된 장소가 없으면 개수 0과 빈 목록을 반환한다")
-        void returnsZeroCountAndEmptyListWhenFolderHasNoScraps() {
+        @DisplayName("저장된 장소가 없으면 빈 페이지와 개수 0을 반환하고 캐시는 조회하지 않는다")
+        void returnsEmptyPageWhenFolderHasNoScraps() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
-            given(placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder)).willReturn(List.of());
+            given(placeScrapRepository.findPageByPlaceFolderId(3L, null, null, SIZE + 1)).willReturn(List.of());
+            given(placeScrapRepository.countByPlaceFolder(folder)).willReturn(0L);
 
-            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO);
+            PlaceFolderScrapsResponse result = placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE);
 
             assertThat(result.totalScrapCount()).isZero();
-            assertThat(result.placeScraps()).isEmpty();
-            assertThat(result.placeFolder().placeFolderId()).isEqualTo(3L);
+            assertThat(result.placeScraps().getContent()).isEmpty();
+            assertThat(result.placeScraps().isHasNext()).isFalse();
             verifyNoInteractions(tourSpotCache);
+        }
+
+        @Test
+        @DisplayName("잘못된 커서면 예외를 던지고 폴더/스크랩을 조회하지 않는다")
+        void throwsWhenCursorInvalid() {
+            AppUser user = appUserWithId(1L, "나그네");
+
+            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, "not-a-cursor", SIZE))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+
+            verifyNoInteractions(placeFolderRepository, placeScrapRepository, tourSpotCache);
         }
 
         @Test
@@ -169,12 +242,11 @@ class PlaceScrapServiceTest {
             AppUser user = appUserWithId(1L, "나그네");
             given(placeFolderRepository.findById(3L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO))
+            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PLACE_FOLDER_NOT_FOUND));
 
-            verify(placeScrapRepository, never()).findAllByPlaceFolderOrderByCreatedAtDesc(any());
-            verifyNoInteractions(tourSpotCache);
+            verifyNoInteractions(placeScrapRepository, tourSpotCache);
         }
 
         @Test
@@ -185,12 +257,11 @@ class PlaceScrapServiceTest {
             PlaceFolder folder = placeFolder(3L, otherUser, "남의 폴더", "📍", false);
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
 
-            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO))
+            assertThatThrownBy(() -> placeScrapService.getPlaceScraps(user, 3L, AppLocale.KO, null, SIZE))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PLACE_FOLDER_ACCESS_DENIED));
 
-            verify(placeScrapRepository, never()).findAllByPlaceFolderOrderByCreatedAtDesc(any());
-            verifyNoInteractions(tourSpotCache);
+            verifyNoInteractions(placeScrapRepository, tourSpotCache);
         }
     }
 
@@ -379,6 +450,14 @@ class PlaceScrapServiceTest {
                 .placeFolder(folder)
                 .build();
         ReflectionTestUtils.setField(scrap, "id", id);
+        return scrap;
+    }
+
+    // createdAt은 감사(auditing) 필드라 세터가 없어, 커서 생성 검증용으로만 ReflectionTestUtils로 값을 심는다
+    private PlaceScrap placeScrap(Long id, AppUser user, String tourismContentId, Sticker sticker, PlaceFolder folder,
+                                  Instant createdAt) {
+        PlaceScrap scrap = placeScrap(id, user, tourismContentId, sticker, folder);
+        ReflectionTestUtils.setField(scrap, "createdAt", createdAt);
         return scrap;
     }
 

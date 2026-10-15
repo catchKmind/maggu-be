@@ -80,21 +80,52 @@ class PlaceScrapRepositoryTest {
     }
 
     @Nested
-    @DisplayName("findAllByPlaceFolderOrderByCreatedAtDesc")
-    class FindAllByPlaceFolder {
+    @DisplayName("findPageByPlaceFolderId")
+    class FindPageByPlaceFolderId {
 
         @Test
-        @DisplayName("저장일(createdAt) 기준 최신순으로 반환한다")
-        void returnsScrapsOrderedByCreatedAtDesc() {
+        @DisplayName("커서가 없으면 저장일 최신순으로 size개까지 반환한다")
+        void returnsFirstPageOrderedByCreatedAtDesc() {
             PlaceScrap oldest = persistScrap(folder, "11111", Instant.parse("2026-10-01T00:00:00Z"));
             PlaceScrap newest = persistScrap(folder, "33333", Instant.parse("2026-10-03T00:00:00Z"));
             PlaceScrap middle = persistScrap(folder, "22222", Instant.parse("2026-10-02T00:00:00Z"));
             em.clear();
 
-            List<PlaceScrap> result = placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder);
+            List<PlaceScrap> result = placeScrapRepository.findPageByPlaceFolderId(folder.getId(), null, null, 2);
 
-            assertThat(result).extracting(PlaceScrap::getId)
-                    .containsExactly(newest.getId(), middle.getId(), oldest.getId());
+            assertThat(result).extracting(PlaceScrap::getId).containsExactly(newest.getId(), middle.getId());
+        }
+
+        @Test
+        @DisplayName("커서가 있으면 커서보다 오래된 스크랩만 이어서 반환한다")
+        void returnsScrapsOlderThanCursor() {
+            PlaceScrap oldest = persistScrap(folder, "11111", Instant.parse("2026-10-01T00:00:00Z"));
+            PlaceScrap middle = persistScrap(folder, "22222", Instant.parse("2026-10-02T00:00:00Z"));
+            persistScrap(folder, "33333", Instant.parse("2026-10-03T00:00:00Z"));
+            em.clear();
+
+            List<PlaceScrap> result = placeScrapRepository.findPageByPlaceFolderId(
+                    folder.getId(), middle.getCreatedAt(), middle.getId(), 10);
+
+            assertThat(result).extracting(PlaceScrap::getId).containsExactly(oldest.getId());
+        }
+
+        @Test
+        @DisplayName("저장일이 같으면 id 내림차순으로 정렬하고, 커서도 id로 구분해 중복/누락이 없다")
+        void breaksTiesById() {
+            Instant sameTime = Instant.parse("2026-10-02T00:00:00Z");
+            PlaceScrap first = persistScrap(folder, "11111", sameTime);
+            PlaceScrap second = persistScrap(folder, "22222", sameTime);
+            PlaceScrap third = persistScrap(folder, "33333", sameTime);
+            em.clear();
+
+            List<PlaceScrap> firstPage = placeScrapRepository.findPageByPlaceFolderId(folder.getId(), null, null, 2);
+            PlaceScrap lastOfFirstPage = firstPage.get(firstPage.size() - 1);
+            List<PlaceScrap> secondPage = placeScrapRepository.findPageByPlaceFolderId(
+                    folder.getId(), lastOfFirstPage.getCreatedAt(), lastOfFirstPage.getId(), 2);
+
+            assertThat(firstPage).extracting(PlaceScrap::getId).containsExactly(third.getId(), second.getId());
+            assertThat(secondPage).extracting(PlaceScrap::getId).containsExactly(first.getId());
         }
 
         @Test
@@ -105,7 +136,7 @@ class PlaceScrapRepositoryTest {
             persistScrap(otherFolder, "22222", Instant.parse("2026-10-02T00:00:00Z"));
             em.clear();
 
-            List<PlaceScrap> result = placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder);
+            List<PlaceScrap> result = placeScrapRepository.findPageByPlaceFolderId(folder.getId(), null, null, 10);
 
             assertThat(result).extracting(PlaceScrap::getTourismContentId).containsExactly("11111");
         }
@@ -116,9 +147,28 @@ class PlaceScrapRepositoryTest {
             em.flush();
             em.clear();
 
-            List<PlaceScrap> result = placeScrapRepository.findAllByPlaceFolderOrderByCreatedAtDesc(folder);
+            List<PlaceScrap> result = placeScrapRepository.findPageByPlaceFolderId(folder.getId(), null, null, 10);
 
             assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("countByPlaceFolder")
+    class CountByPlaceFolder {
+
+        @Test
+        @DisplayName("해당 폴더에 담긴 스크랩 수만 센다")
+        void countsOnlyScrapsInFolder() {
+            PlaceFolder otherFolder = persistFolder("가본 곳", "📍");
+            persistScrap(folder, "11111", Instant.parse("2026-10-01T00:00:00Z"));
+            persistScrap(folder, "22222", Instant.parse("2026-10-02T00:00:00Z"));
+            persistScrap(otherFolder, "33333", Instant.parse("2026-10-03T00:00:00Z"));
+            em.clear();
+
+            long result = placeScrapRepository.countByPlaceFolder(folder);
+
+            assertThat(result).isEqualTo(2);
         }
     }
 }
