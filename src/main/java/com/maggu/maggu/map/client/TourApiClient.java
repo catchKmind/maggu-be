@@ -73,10 +73,10 @@ public class TourApiClient {
         this.objectMapper = objectMapper;
     }
 
-    public List<FestivalSpot> searchFestival(TourServiceArea area) {
+    public List<FestivalSpot> searchFestival(TourServiceArea area, AppLocale locale) {
         String today = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DATE_FORMATTER);
 
-        String rawBody = requestSearchFestival(area, today);
+        String rawBody = requestSearchFestival(area, resolveLocale(locale), today);
 
         return parseFestivalSpots(rawBody);
     }
@@ -304,8 +304,8 @@ public class TourApiClient {
     }
 
     // 행사 정보 조회 API 호출
-    private String requestSearchFestival(TourServiceArea area, String today) {
-        return executeRequest(() -> restClient(AppLocale.KO).get()
+    private String requestSearchFestival(TourServiceArea area, AppLocale locale, String today) {
+        return executeRequest(() -> restClient(locale).get()
                 .uri(uriBuilder -> {
                     uriBuilder.path(SEARCH_FESTIVAL_PATH)
                             .queryParam("eventStartDate", today)

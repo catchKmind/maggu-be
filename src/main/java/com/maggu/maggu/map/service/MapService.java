@@ -47,13 +47,14 @@ public class MapService {
     }
 
     public MapSpotsResponse getMapSpots(double minLat, double minLng, double maxLat, double maxLng, AppLocale locale) {
+        AppLocale resolved = resolveLocale(locale);
         validateBbox(minLat, minLng, maxLat, maxLng);
 
         List<TourSpot> tourSpots = tourSpotCache.findInBbox(
-                resolveLocale(locale), minLng, minLat, maxLng, maxLat);
+                resolved, minLng, minLat, maxLng, maxLat);
 
         List<MapSpotFeature> features = tourSpots.stream()
-                .map(this::toFeature)
+                .map(spot -> toFeature(resolved, spot))
                 .toList();
 
         return MapSpotsResponse.of(features);
@@ -116,11 +117,11 @@ public class MapService {
                 .toList();
     }
 
-    private MapSpotFeature toFeature(TourSpot spot) {
+    private MapSpotFeature toFeature(AppLocale locale, TourSpot spot) {
 
         MapGeometry geometry = MapGeometry.of(spot.mapX(), spot.mapY());
         TourSpotProperties properties = TourSpotProperties.from(
-                spot, ongoingFestivalCache.isOngoing(spot.contentId()));
+                spot, ongoingFestivalCache.isOngoing(locale, spot.contentId()));
 
         return MapSpotFeature.of(geometry, properties);
     }

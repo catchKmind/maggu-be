@@ -1,5 +1,6 @@
 package com.maggu.maggu.map.scheduler;
 
+import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.map.cache.OngoingFestivalCache;
 import com.maggu.maggu.map.client.FestivalSpot;
@@ -14,7 +15,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -29,25 +29,31 @@ public class OngoingFestivalScheduler {
     @EventListener(ApplicationReadyEvent.class)
     @Order(1)
     public void init() {
-        callSearchFestivalAPI();
+        for (AppLocale locale : AppLocale.values()) {
+            log.info("[MAP] OngoingFestivalCache({}) 적재 준비", locale);
+            callSearchFestivalAPI(locale);
+            log.info("[MAP] OngoingFestivalCache({}) 적재 완료", locale);
+        }
     }
 
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
     public void callSearchFestivalAPIAtMidNight() {
-        callSearchFestivalAPI();
+        for (AppLocale locale : AppLocale.values()) {
+            log.info("[MAP] OngoingFestivalCache({}) 배치 준비", locale);
+            callSearchFestivalAPI(locale);
+            log.info("[MAP] OngoingFestivalCache({}) 배치 완료", locale);
+        }
     }
 
-    private void callSearchFestivalAPI() {
-        log.info("[MAP] OngoingFestival Cache에 적재 준비");
+    private void callSearchFestivalAPI(AppLocale locale) {
         for (TourServiceArea tourServiceArea : TourServiceArea.values()) {
             try {
-                List<FestivalSpot> spots = tourApiClient.searchFestival(tourServiceArea);
-                cache.replaceRegion(tourServiceArea, spots);
-                log.info("[MAP] {} 지역 적재 완료({}건) ", tourServiceArea.getName(), spots.size());
+                List<FestivalSpot> spots = tourApiClient.searchFestival(tourServiceArea, locale);
+                cache.replaceRegion(locale, tourServiceArea, spots);
+                log.info("[MAP] {} 지역({}) 적재 완료({}건) ", tourServiceArea.getName(), locale, spots.size());
             } catch (BusinessException e) {
-                log.error("[MAP] {} 지역 OngoingFestival Cache 적재 실패", tourServiceArea.getName(), e);
+                log.error("[MAP] {} 지역({}) OngoingFestival Cache 적재 실패", tourServiceArea.getName(), locale, e);
             }
         }
-        log.info("[MAP] OngoingFestival Cache 적재 완료");
     }
 }

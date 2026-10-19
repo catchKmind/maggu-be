@@ -86,11 +86,24 @@ class MapServiceTest {
         void marksOngoingFestivalAsOngoingEvent() {
             TourSpot spot = new TourSpot("126234", ContentType.FESTIVAL, "막꾸 축제", null, 127.05, 37.55);
             given(spotCache.findInBbox(AppLocale.KO, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
-            given(ongoingFestivalCache.isOngoing("126234")).willReturn(true);
+            given(ongoingFestivalCache.isOngoing(AppLocale.KO, "126234")).willReturn(true);
 
             MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2);
 
             assertThat(response.features().get(0).properties().isOngoingEvent()).isTrue();
+        }
+
+        @Test
+        @DisplayName("lang=EN이면 진행 중 축제 여부도 EN 캐시로 조회한다")
+        void checksOngoingFestivalWithRequestLocale() {
+            TourSpot spot = new TourSpot("264337", ContentType.FESTIVAL, "Maggu Festival", null, 127.05, 37.55);
+            given(spotCache.findInBbox(AppLocale.EN, 126.8, 37.4, 127.2, 37.7)).willReturn(List.of(spot));
+            given(ongoingFestivalCache.isOngoing(AppLocale.EN, "264337")).willReturn(true);
+
+            MapSpotsResponse response = mapService.getMapSpots(37.4, 126.8, 37.7, 127.2, AppLocale.EN);
+
+            assertThat(response.features().get(0).properties().isOngoingEvent()).isTrue();
+            verify(ongoingFestivalCache).isOngoing(AppLocale.EN, "264337");
         }
 
         @Test
