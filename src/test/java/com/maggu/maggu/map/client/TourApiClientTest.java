@@ -243,7 +243,7 @@ class TourApiClientTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .body(gatewayErrorJson("22", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR")));
 
-            assertThatThrownBy(() -> tourApiClient.searchFestival(TourServiceArea.GB))
+            assertThatThrownBy(() -> tourApiClient.searchFestival(TourServiceArea.GB, AppLocale.KO))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOURISM_API_QUOTA_EXCEEDED));
             mockServer.verify();
@@ -259,7 +259,7 @@ class TourApiClientTest {
         void returnsParsedFestivalSpots() {
             expectSearchFestival(searchFestivalJson(CONTENT_ID, "20260918", "20260920"));
 
-            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB);
+            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB, AppLocale.KO);
 
             assertThat(result).hasSize(1);
             FestivalSpot spot = result.get(0);
@@ -275,10 +275,29 @@ class TourApiClientTest {
         void skipsItemWithMalformedDateInsteadOfFailingWholeBatch() {
             expectSearchFestival(searchFestivalJson(CONTENT_ID, "invalid-date", "20260920"));
 
-            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB);
+            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB, AppLocale.KO);
 
             assertThat(result).isEmpty();
             mockServer.verify();
+        }
+
+        @Test
+        @DisplayName("locale이 EN이면 영문(EngService2) RestClient로 호출한다")
+        void callsEngRestClientWhenLocaleIsEn() {
+            String engBaseUrl = "http://eng.tourapi.test";
+            RestClient.Builder engBuilder = RestClient.builder().baseUrl(engBaseUrl);
+            MockRestServiceServer engMockServer = MockRestServiceServer.bindTo(engBuilder).build();
+            TourApiClient client = new TourApiClient(
+                    restClient, engBuilder.build(), Runnable::run, properties, new ObjectMapper());
+            engMockServer.expect(requestTo(containsString(engBaseUrl + "/searchFestival2")))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withSuccess(searchFestivalJson(CONTENT_ID, "20260918", "20260920"), MediaType.APPLICATION_JSON));
+            // 국문 mockServer에는 expectation을 등록하지 않는다 — 국문 RestClient로 호출되면 "예상치 못한 요청"으로 실패한다.
+
+            List<FestivalSpot> result = client.searchFestival(TourServiceArea.GB, AppLocale.EN);
+
+            assertThat(result).extracting(FestivalSpot::contentId).containsExactly(CONTENT_ID);
+            engMockServer.verify();
         }
     }
 
