@@ -12,7 +12,7 @@ public record PresignedUrlRequest(
 
         @NotBlank
         @Size(max = 15)
-        @Schema(description = "도메인 (STICKER / POST)")
+        @Schema(description = "도메인 (STICKER / POST / PROFILE)")
         String domain
 ) {
 }
