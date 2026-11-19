@@ -2,11 +2,13 @@ package com.maggu.maggu.community.repository;
 
 import com.maggu.maggu.community.entity.Comment;
 import com.maggu.maggu.post.entity.Post;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
@@ -38,4 +40,23 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Comment c SET c.user = null WHERE c.user.id = :userId")
     void detachUser(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT c FROM Comment c
+            JOIN FETCH c.post p
+            JOIN FETCH p.user
+            WHERE c.user.id = :userId
+              AND c.deleted = false
+              AND p.deleted = false
+              AND (:cursorId IS NULL
+                   OR c.createdAt < :createdAt
+                   OR (c.createdAt = :createdAt AND c.id < :cursorId))
+            ORDER BY c.createdAt DESC, c.id DESC
+            """)
+    List<Comment> findPageByUserId(@Param("userId") Long userId,
+                                   @Param("createdAt") Instant createdAt,
+                                   @Param("cursorId") Long cursorId,
+                                   Limit limit);
+
+    long countByUserIdAndDeletedFalseAndPostDeletedFalse(Long userId);
 }

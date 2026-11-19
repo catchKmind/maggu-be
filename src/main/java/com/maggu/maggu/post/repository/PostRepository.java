@@ -214,4 +214,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                 AND p.tourism_content_id = :contentId
             """, nativeQuery = true)
     int sumScrapCountByTourismContentId(@Param("contentId") String contentId);
+
+    @Query(value = """
+            SELECT p.*
+            FROM post p
+            WHERE p.user_id = :userId
+                        AND (:cursorId IS NULL OR (p.created_at, p.id) < (:createdAt, :cursorId))
+                        AND p.deleted = false
+            ORDER BY p.created_at DESC, p.id DESC 
+            LIMIT :size
+            """, nativeQuery = true)
+    List<Post> findPageByUserId(@Param("userId") Long userId,
+                                @Param("createdAt") Instant createdAt,
+                                @Param("cursorId") Long cursorId,
+                                @Param("size") int size);
+
+    long countByUserIdAndDeletedFalse(Long userId);
 }
