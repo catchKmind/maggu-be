@@ -46,6 +46,10 @@ public class AppUser extends BaseEntity {
     @Column(nullable = false, length = 30)
     private String nickname;
 
+    // objectKey 저장 / 응답 시 CloudFrontUrlResolver로 CDN URL 변환 / 없으면 null
+    @Column(name = "profile_image_url", length = 500)
+    private String profileImageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 10)
     private AppLocale locale = AppLocale.KO;
