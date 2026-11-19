@@ -4,6 +4,7 @@ import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.mypage.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
@@ -38,6 +39,9 @@ class UserServiceTest {
 
     @Mock
     private NicknameGenerator nicknameGenerator;
+
+    @Mock
+    private CloudFrontUrlResolver cloudFrontUrlResolver;
 
     @InjectMocks
     private UserService userService;
@@ -226,7 +230,26 @@ class UserServiceTest {
             assertThat(result.getEmail()).isEqualTo("test@test.com");
             assertThat(result.getNickname()).isEqualTo("행복한사자123");
             assertThat(result.getLocale()).isEqualTo(AppLocale.KO);
+            assertThat(result.getProfileImageUrl()).isNull();
             verifyNoInteractions(userRepository);
+        }
+
+        @Test
+        @DisplayName("프로필 이미지가 있으면 저장된 objectKey를 CDN URL로 변환해 반환한다")
+        void returnsProfileImageAsPublicUrl() {
+            AppUser appUser = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "profileImageUrl", "PROFILE/1/uuid.png");
+            given(cloudFrontUrlResolver.toPublicUrl("PROFILE/1/uuid.png"))
+                    .willReturn("https://cdn.example.com/PROFILE/1/uuid.png");
+
+            MyAccountResponse result = userService.getMyAccount(appUser);
+
+            assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/PROFILE/1/uuid.png");
         }
     }
 
@@ -268,6 +291,35 @@ class UserServiceTest {
 
             assertThat(appUser.getLocale()).isEqualTo(AppLocale.EN);
             assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
+        }
+
+        @Test
+        @DisplayName("프로필 이미지는 인자로 받은 유저가 아니라 DB에서 조회한 유저 기준으로 CDN URL로 변환해 반환한다")
+        void returnsProfileImageOfPersistedUser() {
+            AppUser principal = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(principal, "id", 1L);
+
+            AppUser persisted = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(persisted, "id", 1L);
+            org.springframework.test.util.ReflectionTestUtils.setField(persisted, "profileImageUrl", "PROFILE/1/uuid.png");
+
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(cloudFrontUrlResolver.toPublicUrl("PROFILE/1/uuid.png"))
+                    .willReturn("https://cdn.example.com/PROFILE/1/uuid.png");
+
+            MyAccountResponse result = userService.updateLocale(principal, AppLocale.EN);
+
+            assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/PROFILE/1/uuid.png");
         }
     }
 }

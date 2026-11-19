@@ -4,6 +4,7 @@ import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
+import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.mypage.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
@@ -21,6 +22,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final NicknameGenerator nicknameGenerator;
+    private final CloudFrontUrlResolver cloudFrontUrlResolver;
 
     @Transactional
     public AppUser createUser(Provider provider, String providerUserId, String email) {
@@ -49,8 +51,9 @@ public class UserService {
     public MyAccountResponse updateLocale(AppUser user, AppLocale locale) {
         AppUser appUser = userRepository.findById(user.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
+        String profileImageUrl = cloudFrontUrlResolver.toPublicUrl(appUser.getProfileImageUrl());
         appUser.changeLocale(locale);
-        return MyAccountResponse.from(appUser);
+        return MyAccountResponse.from(appUser, profileImageUrl);
     }
 
     @Transactional
@@ -72,7 +75,8 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public MyAccountResponse getMyAccount(AppUser user) {
-        return MyAccountResponse.from(user);
+        String profileImageUrl = cloudFrontUrlResolver.toPublicUrl(user.getProfileImageUrl());
+        return MyAccountResponse.from(user, profileImageUrl);
     }
 
     private String resolveNickname(String preferredNickname) {
