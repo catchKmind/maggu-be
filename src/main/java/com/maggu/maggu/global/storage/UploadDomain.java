@@ -5,7 +5,8 @@ import com.maggu.maggu.global.exception.ErrorCode;
 
 public enum UploadDomain {
     STICKER,
-    POST;
+    POST,
+    PROFILE;
 
     public static UploadDomain from(String value) {
         try {
