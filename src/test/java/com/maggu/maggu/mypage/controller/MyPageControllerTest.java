@@ -76,12 +76,12 @@ class MyPageControllerTest {
     class GetMyAccount {
 
         @Test
-        @DisplayName("인증된 유저면 provider/email/nickname/locale을 반환한다")
+        @DisplayName("인증된 유저면 provider/email/nickname/profileImageUrl/locale을 반환한다")
         void returnsAccount() throws Exception {
             AppUser user = appUser(1L);
             authenticateAs(user);
             given(userService.getMyAccount(user))
-                    .willReturn(MyAccountResponse.from(user));
+                    .willReturn(MyAccountResponse.from(user, "https://cdn.example.com/PROFILE/1/uuid.png"));
 
             mockMvc.perform(get("/api/v1/mypage/account"))
                     .andExpect(status().isOk())
@@ -89,6 +89,7 @@ class MyPageControllerTest {
                     .andExpect(jsonPath("$.data.provider").value("APPLE"))
                     .andExpect(jsonPath("$.data.email").value("user@test.com"))
                     .andExpect(jsonPath("$.data.nickname").value("시진"))
+                    .andExpect(jsonPath("$.data.profileImageUrl").value("https://cdn.example.com/PROFILE/1/uuid.png"))
                     .andExpect(jsonPath("$.data.locale").value("KO"));
         }
 
@@ -112,7 +113,7 @@ class MyPageControllerTest {
             AppUser user = appUser(1L);
             authenticateAs(user);
             given(userService.updateLocale(user, AppLocale.EN))
-                    .willReturn(new MyAccountResponse(Provider.APPLE, "user@test.com", "시진", AppLocale.EN));
+                    .willReturn(new MyAccountResponse(Provider.APPLE, "user@test.com", "시진", null, AppLocale.EN));
 
             mockMvc.perform(patch("/api/v1/mypage/locale")
                             .contentType(MediaType.APPLICATION_JSON)

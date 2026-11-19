@@ -63,6 +63,19 @@ class PresignedUrlServiceTest {
         }
 
         @Test
+        @DisplayName("domain이 PROFILE이면 PROFILE/{userId}/{uuid}.{ext} 형식의 objectKey를 발급한다")
+        void issuesProfileObjectKey() throws Exception {
+            AppUser user = appUser(1L);
+            PresignedUrlRequest request = new PresignedUrlRequest("image/jpeg", "PROFILE");
+            given(amazonS3.generatePresignedUrl(any(GeneratePresignedUrlRequest.class)))
+                    .willReturn(new URL("https://test-bucket.s3.amazonaws.com/signed"));
+
+            PresignedUrlResponse result = presignedUrlService.generatePresignedUrl(user, request);
+
+            assertThat(result.objectKey()).matches("PROFILE/1/[0-9a-f-]{36}\\.jpeg");
+        }
+
+        @Test
         @DisplayName("버킷/키/HTTP 메서드/Content-Type을 정확히 담아 S3에 서명을 요청한다")
         void buildsGeneratePresignedUrlRequestCorrectly() throws Exception {
             AppUser user = appUser(1L);
@@ -94,7 +107,7 @@ class PresignedUrlServiceTest {
         }
 
         @Test
-        @DisplayName("domain 값이 STICKER/POST가 아니면 예외를 던지고 S3를 호출하지 않는다")
+        @DisplayName("domain 값이 STICKER/POST/PROFILE이 아니면 예외를 던지고 S3를 호출하지 않는다")
         void throwsWhenDomainInvalid() {
             AppUser user = appUser(1L);
             PresignedUrlRequest request = new PresignedUrlRequest("image/png", "INVALID");
@@ -135,6 +148,35 @@ class PresignedUrlServiceTest {
 
             assertThatCode(() -> presignedUrlService.validateObjectKey(user, UploadDomain.STICKER, objectKey))
                     .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("PROFILE 도메인으로 발급받은 objectKey는 PROFILE 검증을 통과한다")
+        void passesForProfileKeyIssuedByGeneratePresignedUrl() throws Exception {
+            AppUser user = appUser(1L);
+            given(amazonS3.generatePresignedUrl(any(GeneratePresignedUrlRequest.class)))
+                    .willReturn(new URL("https://test-bucket.s3.amazonaws.com/signed"));
+            String objectKey = presignedUrlService
+                    .generatePresignedUrl(user, new PresignedUrlRequest("image/png", "PROFILE"))
+                    .objectKey();
+
+            assertThatCode(() -> presignedUrlService.validateObjectKey(user, UploadDomain.PROFILE, objectKey))
+                    .doesNotThrowAnyException();
+        }
+
+        @ParameterizedTest(name = "[{index}] {0}")
+        @ValueSource(strings = {
+                "STICKER/12/" + UUID_VALUE + ".png",
+                "POST/12/" + UUID_VALUE + ".png",
+                "PROFILE/99/" + UUID_VALUE + ".png"
+        })
+        @DisplayName("PROFILE 검증에 다른 도메인이나 다른 유저의 키를 넣으면 UPLOAD_INVALID_OBJECT_KEY 예외를 던진다")
+        void throwsWhenProfileKeyFromOtherDomainOrUser(String objectKey) {
+            AppUser user = appUser(12L);
+
+            assertThatThrownBy(() -> presignedUrlService.validateObjectKey(user, UploadDomain.PROFILE, objectKey))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
         }
 
         @ParameterizedTest(name = "[{index}] {0}")
