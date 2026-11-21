@@ -5,7 +5,7 @@ import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
-import com.maggu.maggu.mypage.dto.response.MyAccountResponse;
+import com.maggu.maggu.user.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
