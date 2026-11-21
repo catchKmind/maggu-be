@@ -1,17 +1,13 @@
 package com.maggu.maggu.mypage.controller;
 
 import com.maggu.maggu.global.auth.CurrentUser;
-import com.maggu.maggu.mypage.dto.request.LocaleUpdateRequest;
-import com.maggu.maggu.mypage.dto.response.MyAccountResponse;
 import com.maggu.maggu.mypage.dto.response.MyCommentListResponse;
 import com.maggu.maggu.mypage.dto.response.MyPostListResponse;
 import com.maggu.maggu.mypage.service.MyActivityService;
 import com.maggu.maggu.user.entity.AppUser;
-import com.maggu.maggu.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,23 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class MyPageController {
     private static final int MAX_FEED_SIZE = 100;
 
-    private final UserService userService;
     private final MyActivityService myActivityService;
-
-    @Operation(summary = "내 계정 정보 조회", description = "로그인한 본인의 provider/email/nickname/locale을 조회한다.")
-    @GetMapping("/account")
-    public MyAccountResponse getMyAccount(@CurrentUser AppUser user) {
-        return userService.getMyAccount(user); // TODO: 프로필 이미지 응답에 추가
-    }
-
-    @Operation(summary = "앱 언어 변경", description = "지도 TourAPI 언어 기본값으로 사용한다. 요청마다 lang을 보내면 그 값이 우선한다.")
-    @PatchMapping("/locale")
-    public MyAccountResponse updateLocale(
-            @CurrentUser AppUser user,
-            @Valid @RequestBody LocaleUpdateRequest request
-    ) {
-        return userService.updateLocale(user, request.locale());
-    }
 
     @Operation(summary = "내가 쓴 글 목록 조회",
             description = "본인이 작성한 게시글을 최신 작성순으로 반환한다. 삭제된 글은 제외하고, 사진 없는 글은 imageUrl이 null이다. "
