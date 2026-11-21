@@ -1,4 +1,4 @@
-package com.maggu.maggu.mypage.dto.response;
+package com.maggu.maggu.user.dto.response;
 
 import com.maggu.maggu.global.entity.enums.AppLocale;
 import com.maggu.maggu.global.entity.enums.Provider;
