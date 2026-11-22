@@ -24,10 +24,10 @@ public record PostCreateRequest(
         @Schema(description = "presigned-url 발급(domain=POST) 응답의 objectKey 목록. 0~4개. 없으면 생략", example = "[\"POST/8/a0d0809f-83cb-469e-9861-861fd3ff9ceb.png\"]", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         List<String> imageUrls,
 
-        @Schema(description = "장소명", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Schema(description = "장소명. 없으면 생략", example = "해운대해수욕장", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         String placeName,
 
-        @Schema(description = "관광공사 콘텐츠 ID", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Schema(description = "관광공사 콘텐츠 ID. 없으면 생략", example = "126081", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         String tourismContentId,
 
         @Schema(description = "위치 출처 AUTO(EXIF) / MANUAL(지도 검색)", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
@@ -35,12 +35,12 @@ public record PostCreateRequest(
 
         @DecimalMin(value = "-90.0")
         @DecimalMax(value = "90.0")
-        @Schema(description = "위도. 사진이 있으면 필수", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Schema(description = "위도. 사진이 있으면 필수, 없으면 생략", example = "35.1587", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         Double latitude,
 
         @DecimalMin(value = "-180.0")
         @DecimalMax(value = "180.0")
-        @Schema(description = "경도. 사진이 있으면 필수", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+        @Schema(description = "경도. 사진이 있으면 필수, 없으면 생략", example = "129.1604", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
         Double longitude
 ) {
     public enum LocationSource {
