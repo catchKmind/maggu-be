@@ -11,6 +11,7 @@ import com.maggu.maggu.community.service.ScrapService;
 import com.maggu.maggu.global.auth.CurrentUser;
 import com.maggu.maggu.user.entity.AppUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -60,7 +61,7 @@ public class ScrapController {
     @Operation(summary = "스크랩 취소")
     public ScrapResponse unscrap(
             @CurrentUser AppUser user,
-            @PathVariable Long postId
+            @Parameter(description = "게시글 ID", example = "1") @PathVariable Long postId
     ) {
         return scrapService.unscrap(user, postId);
     }
@@ -69,8 +70,8 @@ public class ScrapController {
     @Operation(summary = "스크랩 폴더 이동")
     public ScrapResponse moveFolder(
             @CurrentUser AppUser user,
-            @PathVariable Long postId,
-            @PathVariable Long folderId
+            @Parameter(description = "게시글 ID", example = "1") @PathVariable Long postId,
+            @Parameter(description = "폴더 ID", example = "1") @PathVariable Long folderId
     ) {
         return scrapService.moveFolder(user, postId, folderId);
     }
@@ -79,7 +80,7 @@ public class ScrapController {
     @Operation(summary = "폴더별 스크랩 목록 조회")
     public PageResponse<PostSummaryResponse> getScraps(
             @CurrentUser AppUser user,
-            @PathVariable Long folderId,
+            @Parameter(description = "폴더 ID", example = "1") @PathVariable Long folderId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {

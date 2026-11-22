@@ -8,6 +8,7 @@ import com.maggu.maggu.sticker.dto.StickerResponse;
 import com.maggu.maggu.sticker.service.StickerService;
 import com.maggu.maggu.user.entity.AppUser;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +54,7 @@ public class StickerController {
     @Operation(summary = "내 스티커 삭제", description = "본인이 생성한 스티커만 삭제할 수 있다.")
     @DeleteMapping("/{stickerId}")
     public StickerDeleteResponse deleteMySticker(@CurrentUser AppUser user,
-                                                 @PathVariable Long stickerId) {
+                                                 @Parameter(description = "스티커 ID", example = "1") @PathVariable Long stickerId) {
         return stickerService.deleteMySticker(user, stickerId);
     }
 }
