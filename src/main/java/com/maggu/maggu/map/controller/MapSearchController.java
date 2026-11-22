@@ -41,7 +41,7 @@ public class MapSearchController {
     @GetMapping("/posts")
     public CursorPageResponse<PostFeedItemResponse> getPosts(
             @Parameter(description = "검색어(키워드)") @RequestParam String keyword,
-            @Parameter(description = "인기순(POPULAR) / 최신순(LATEST)으로 분류") @RequestParam String feedSort,
+            @Parameter(description = "스크랩 많은순(most_scrapped) / 최신순(latest)") @RequestParam String feedSort,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int size
     ) {

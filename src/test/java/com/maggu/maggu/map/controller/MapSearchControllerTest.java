@@ -89,11 +89,11 @@ class MapSearchControllerTest {
                     .nextCursor("next-cursor")
                     .hasNext(true)
                     .build();
-            given(mapSearchService.searchPosts("해운대", FeedSort.POPULAR, null, 20)).willReturn(response);
+            given(mapSearchService.searchPosts("해운대", FeedSort.MOST_SCRAPPED, null, 20)).willReturn(response);
 
             mockMvc.perform(get("/api/v1/map/search/posts")
                             .param("keyword", "해운대")
-                            .param("feedSort", "POPULAR"))
+                            .param("feedSort", "most_scrapped"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.content[0].postId").value(1))
@@ -120,24 +120,24 @@ class MapSearchControllerTest {
         @Test
         @DisplayName("size가 최대치(100)를 넘으면 100으로 clamp해서 서비스에 전달한다")
         void clampsSizeToMax() throws Exception {
-            given(mapSearchService.searchPosts("해운대", FeedSort.POPULAR, null, 100))
+            given(mapSearchService.searchPosts("해운대", FeedSort.MOST_SCRAPPED, null, 100))
                     .willReturn(CursorPageResponse.<PostFeedItemResponse>builder()
                             .content(List.of()).nextCursor(null).hasNext(false).build());
 
             mockMvc.perform(get("/api/v1/map/search/posts")
                             .param("keyword", "해운대")
-                            .param("feedSort", "POPULAR")
+                            .param("feedSort", "most_scrapped")
                             .param("size", "500"))
                     .andExpect(status().isOk());
 
-            verify(mapSearchService).searchPosts("해운대", FeedSort.POPULAR, null, 100);
+            verify(mapSearchService).searchPosts("해운대", FeedSort.MOST_SCRAPPED, null, 100);
         }
 
         @Test
         @DisplayName("필수 파라미터(keyword)가 없으면 서비스는 호출하지 않는다")
         void doesNotCallServiceWhenKeywordMissing() throws Exception {
             mockMvc.perform(get("/api/v1/map/search/posts")
-                    .param("feedSort", "POPULAR"));
+                    .param("feedSort", "most_scrapped"));
 
             verifyNoInteractions(mapSearchService);
         }
@@ -158,12 +158,12 @@ class MapSearchControllerTest {
         @Test
         @DisplayName("서비스에서 BusinessException이 발생하면 해당 에러코드로 응답한다")
         void returnsErrorBodyWhenServiceThrowsBusinessException() throws Exception {
-            given(mapSearchService.searchPosts("해운대", FeedSort.POPULAR, null, 20))
+            given(mapSearchService.searchPosts("해운대", FeedSort.MOST_SCRAPPED, null, 20))
                     .willThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
             mockMvc.perform(get("/api/v1/map/search/posts")
                             .param("keyword", "해운대")
-                            .param("feedSort", "POPULAR"))
+                            .param("feedSort", "most_scrapped"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("COMMON-001"));
