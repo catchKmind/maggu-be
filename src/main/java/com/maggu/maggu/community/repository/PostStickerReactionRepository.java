@@ -34,6 +34,14 @@ public interface PostStickerReactionRepository extends JpaRepository<PostSticker
             """)
     List<PostReactionCount> countByPostInGrouped(@Param("posts") List<Post> posts);
 
+    @Query("""
+            SELECT r.post.id AS postId, r.sticker AS sticker, COUNT(r) AS count
+            FROM PostStickerReaction r
+            WHERE r.post IN :posts
+            GROUP BY r.post.id, r.sticker
+            """)
+    List<PostStickerCount> countByPostInGroupBySticker(@Param("posts") List<Post> posts);
+
     // 피드 목록 중 내가 반응한 내역 한 번에 조회
     List<PostStickerReaction> findByUserAndPostIn(AppUser user, List<Post> posts);
 
@@ -47,6 +55,14 @@ public interface PostStickerReactionRepository extends JpaRepository<PostSticker
 
     interface PostReactionCount {
         Long getPostId();
+
+        long getCount();
+    }
+
+    interface PostStickerCount {
+        Long getPostId();
+
+        Sticker getSticker();
 
         long getCount();
     }
