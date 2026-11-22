@@ -63,7 +63,7 @@ class PostFeedServiceTest {
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, null, null, null, 3))
                     .willReturn(List.of());
 
-            postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
+            postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, null, 2);
 
             verify(postRepository).findPostsByContentIdPopular(CONTENT_ID, null, null, null, 3);
             verify(postRepository, never()).findPostsByContentIdLatest(any(), any(), any(), anyInt());
@@ -89,7 +89,7 @@ class PostFeedServiceTest {
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, null, null, null, 21))
                     .willReturn(List.of());
 
-            postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 20);
+            postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, null, 20);
 
             verify(postRepository).findPostsByContentIdPopular(CONTENT_ID, null, null, null, 21);
         }
@@ -111,7 +111,7 @@ class PostFeedServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
+                    postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent())
                     .extracting(PostFeedItemResponse::postId)
@@ -137,7 +137,7 @@ class PostFeedServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
+                    postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent()).extracting(PostFeedItemResponse::postId).containsExactly(1L);
             assertThat(response.isHasNext()).isFalse();
@@ -151,7 +151,7 @@ class PostFeedServiceTest {
                     .willReturn(List.of());
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
+                    postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent()).isEmpty();
             assertThat(response.isHasNext()).isFalse();
@@ -166,7 +166,7 @@ class PostFeedServiceTest {
             given(postRepository.findPostsByContentIdPopular(CONTENT_ID, 15, Instant.ofEpochMilli(5_000), 42L, 3))
                     .willReturn(List.of());
 
-            postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, cursor.encode(), 2);
+            postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, cursor.encode(), 2);
 
             verify(postRepository).findPostsByContentIdPopular(CONTENT_ID, 15, Instant.ofEpochMilli(5_000), 42L, 3);
         }
@@ -174,7 +174,7 @@ class PostFeedServiceTest {
         @Test
         @DisplayName("잘못된 커서 문자열이면 예외를 던지고 리포지토리를 호출하지 않는다")
         void throwsWhenCursorIsInvalid() {
-            assertThatThrownBy(() -> postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, "not-a-valid-cursor!!", 2))
+            assertThatThrownBy(() -> postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, "not-a-valid-cursor!!", 2))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
@@ -195,7 +195,7 @@ class PostFeedServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    postFeedService.getFeed(CONTENT_ID, FeedSort.POPULAR, null, 2);
+                    postFeedService.getFeed(CONTENT_ID, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent().get(0).imageUrl()).isEqualTo("https://img/first.jpg");
         }

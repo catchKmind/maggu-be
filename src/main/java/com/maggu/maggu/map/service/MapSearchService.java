@@ -79,7 +79,7 @@ public class MapSearchService {
         boolean isPopularKeyword = isPopularKeyword(normalizeKeyword);
 
         List<Post> posts;
-        if (sort == FeedSort.POPULAR) {
+        if (sort == FeedSort.MOST_SCRAPPED) {
             posts = isPopularKeyword
                     ? postRepository.findAllPopular(scrapCount, createdAt, cursorId, size + 1)
                     : postRepository.findByKeywordPopular(normalizeKeyword, scrapCount, createdAt, cursorId, size + 1);

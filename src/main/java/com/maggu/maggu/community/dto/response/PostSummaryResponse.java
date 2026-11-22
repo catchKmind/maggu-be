@@ -20,6 +20,7 @@ public class PostSummaryResponse {
 
     private long reactionCount;
     private boolean reactedByMe;
+    private List<StickerReactionItem> stickerReactions;
 
     private int scrapCount;
     private long commentCount;

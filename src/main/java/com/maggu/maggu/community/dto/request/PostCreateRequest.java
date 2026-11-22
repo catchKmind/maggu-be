@@ -17,7 +17,7 @@ public record PostCreateRequest(
         String content,
 
         @NotNull
-        @Schema(description = "카테고리", example = "RECOMMEND")
+        @Schema(description = "카테고리. 추천=RECOMMEND, 질문=QUESTION", example = "RECOMMEND")
         PostCategory category,
 
         @Size(max = 4, message = "사진은 최대 4장까지 첨부할 수 있습니다.")

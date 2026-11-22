@@ -2,7 +2,9 @@ package com.maggu.maggu.community.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maggu.maggu.community.dto.request.PostCreateRequest;
+import com.maggu.maggu.community.dto.response.PageResponse;
 import com.maggu.maggu.community.dto.response.PostCreateResponse;
+import com.maggu.maggu.community.dto.response.PostSummaryResponse;
 import com.maggu.maggu.community.entity.PostCategory;
 import com.maggu.maggu.post.dto.enums.FeedSort;
 import com.maggu.maggu.post.dto.response.PostFeedItemResponse;
@@ -35,6 +37,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
@@ -153,6 +157,61 @@ class PostControllerTest {
 
             verifyNoInteractions(commandService);
         }
+
+        @Test
+        @DisplayName("QUESTION 카테고리로 작성할 수 있다")
+        void createsQuestionPost() throws Exception {
+            authenticateAs(appUser(1L));
+            given(commandService.createPost(any(), any())).willReturn(
+                    PostCreateResponse.builder().postId(11L).slug("qna123").build());
+
+            mockMvc.perform(post("/api/v1/community/posts")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"content":"여기 주차 되나요?","category":"QUESTION"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.postId").value(11));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/community/posts")
+    class GetCommunityFeed {
+
+        @Test
+        @DisplayName("sort=most_scrapped면 스크랩 많은순으로 조회한다")
+        void sortsByMostScrapped() throws Exception {
+            authenticateAs(appUser(1L));
+            given(queryService.getFeed(isNull(), eq(FeedSort.MOST_SCRAPPED), any(), eq(0), eq(20)))
+                    .willReturn(PageResponse.<PostSummaryResponse>builder()
+                            .content(List.of())
+                            .page(0)
+                            .size(20)
+                            .totalElements(0)
+                            .totalPages(0)
+                            .hasNext(false)
+                            .build());
+
+            mockMvc.perform(get("/api/v1/community/posts")
+                            .param("sort", "most_scrapped"))
+                    .andExpect(status().isOk());
+
+            verify(queryService).getFeed(isNull(), eq(FeedSort.MOST_SCRAPPED), any(), eq(0), eq(20));
+        }
+
+        @Test
+        @DisplayName("sort=popular는 더 이상 받지 않는다")
+        void rejectsPopularAlias() throws Exception {
+            authenticateAs(appUser(1L));
+
+            mockMvc.perform(get("/api/v1/community/posts")
+                            .param("sort", "popular"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON-001"));
+
+            verifyNoInteractions(queryService);
+        }
     }
 
     @Nested
@@ -167,11 +226,11 @@ class PostControllerTest {
                     .nextCursor("next-cursor")
                     .hasNext(true)
                     .build();
-            given(feedService.getFeed("126234", FeedSort.POPULAR, null, 20)).willReturn(response);
+            given(feedService.getFeed("126234", FeedSort.MOST_SCRAPPED, null, 20)).willReturn(response);
 
             mockMvc.perform(get("/api/v1/community/posts/feed")
                             .param("contentId", "126234")
-                            .param("feedSort", "POPULAR"))
+                            .param("feedSort", "most_scrapped"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.content[0].postId").value(1))
@@ -198,24 +257,36 @@ class PostControllerTest {
         @Test
         @DisplayName("size가 최대치(100)를 넘으면 100으로 clamp해서 서비스에 전달한다")
         void clampsSizeToMax() throws Exception {
-            given(feedService.getFeed("126234", FeedSort.POPULAR, null, 100))
+            given(feedService.getFeed("126234", FeedSort.MOST_SCRAPPED, null, 100))
                     .willReturn(CursorPageResponse.<PostFeedItemResponse>builder()
                             .content(List.of()).nextCursor(null).hasNext(false).build());
 
             mockMvc.perform(get("/api/v1/community/posts/feed")
                             .param("contentId", "126234")
-                            .param("feedSort", "POPULAR")
+                            .param("feedSort", "most_scrapped")
                             .param("size", "500"))
                     .andExpect(status().isOk());
 
-            verify(feedService).getFeed("126234", FeedSort.POPULAR, null, 100);
+            verify(feedService).getFeed("126234", FeedSort.MOST_SCRAPPED, null, 100);
         }
 
         @Test
         @DisplayName("필수 파라미터(contentId)가 없으면 서비스는 호출하지 않는다")
         void doesNotCallServiceWhenContentIdMissing() throws Exception {
             mockMvc.perform(get("/api/v1/community/posts/feed")
-                    .param("feedSort", "POPULAR"));
+                    .param("feedSort", "most_scrapped"));
+
+            verifyNoInteractions(feedService);
+        }
+
+        @Test
+        @DisplayName("feedSort=popular는 더 이상 받지 않는다")
+        void rejectsPopularAlias() throws Exception {
+            mockMvc.perform(get("/api/v1/community/posts/feed")
+                            .param("contentId", "126234")
+                            .param("feedSort", "popular"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON-001"));
 
             verifyNoInteractions(feedService);
         }
@@ -236,12 +307,12 @@ class PostControllerTest {
         @Test
         @DisplayName("서비스에서 BusinessException이 발생하면 해당 에러코드로 응답한다")
         void returnsErrorBodyWhenServiceThrowsBusinessException() throws Exception {
-            given(feedService.getFeed("126234", FeedSort.POPULAR, "broken-cursor", 20))
+            given(feedService.getFeed("126234", FeedSort.MOST_SCRAPPED, "broken-cursor", 20))
                     .willThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
             mockMvc.perform(get("/api/v1/community/posts/feed")
                             .param("contentId", "126234")
-                            .param("feedSort", "POPULAR")
+                            .param("feedSort", "most_scrapped")
                             .param("cursor", "broken-cursor"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))

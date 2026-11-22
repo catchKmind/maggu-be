@@ -112,7 +112,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, null, 2);
 
             verify(postRepository).findByKeywordPopular(KEYWORD, null, null, null, 3);
             verify(postRepository, never()).findByKeywordLatest(any(), any(), any(), anyInt());
@@ -138,7 +138,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 20);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, null, 20);
 
             verify(postRepository).findByKeywordPopular(KEYWORD, null, null, null, 21);
         }
@@ -160,7 +160,7 @@ class MapSearchServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent())
                     .extracting(PostFeedItemResponse::postId)
@@ -186,7 +186,7 @@ class MapSearchServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent()).extracting(PostFeedItemResponse::postId).containsExactly(1L);
             assertThat(response.isHasNext()).isFalse();
@@ -201,7 +201,7 @@ class MapSearchServiceTest {
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent()).isEmpty();
             assertThat(response.isHasNext()).isFalse();
@@ -216,7 +216,7 @@ class MapSearchServiceTest {
                     .willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, cursor.encode(), 2);
+            mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, cursor.encode(), 2);
 
             verify(postRepository).findByKeywordPopular(KEYWORD, 15, Instant.ofEpochMilli(5_000), 42L, 3);
         }
@@ -224,7 +224,7 @@ class MapSearchServiceTest {
         @Test
         @DisplayName("잘못된 커서 문자열이면 예외를 던지고 리포지토리를 호출하지 않는다")
         void throwsWhenCursorIsInvalid() {
-            assertThatThrownBy(() -> mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, "not-a-valid-cursor!!", 2))
+            assertThatThrownBy(() -> mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, "not-a-valid-cursor!!", 2))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
@@ -237,7 +237,7 @@ class MapSearchServiceTest {
             given(postRepository.findAllPopular(null, null, null, 3)).willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.searchPosts("Hot Places", FeedSort.POPULAR, null, 2);
+            mapSearchService.searchPosts("Hot Places", FeedSort.MOST_SCRAPPED, null, 2);
 
             verify(postRepository).findAllPopular(null, null, null, 3);
             verify(postRepository, never()).findByKeywordPopular(any(), any(), any(), any(), anyInt());
@@ -261,7 +261,7 @@ class MapSearchServiceTest {
             given(postRepository.findAllPopular(null, null, null, 3)).willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.searchPosts(" 인기 ", FeedSort.POPULAR, null, 2);
+            mapSearchService.searchPosts(" 인기 ", FeedSort.MOST_SCRAPPED, null, 2);
 
             verify(postRepository).findAllPopular(null, null, null, 3);
         }
@@ -272,7 +272,7 @@ class MapSearchServiceTest {
             given(postRepository.findAllPopular(null, null, null, 3)).willReturn(List.of());
             given(postImageRepository.findByPostInOrderBySortOrderAsc(List.of())).willReturn(List.of());
 
-            mapSearchService.searchPosts("hot places", FeedSort.POPULAR, null, 2);
+            mapSearchService.searchPosts("hot places", FeedSort.MOST_SCRAPPED, null, 2);
 
             verify(postRepository).findAllPopular(null, null, null, 3);
         }
@@ -291,7 +291,7 @@ class MapSearchServiceTest {
             ));
 
             CursorPageResponse<PostFeedItemResponse> response =
-                    mapSearchService.searchPosts(KEYWORD, FeedSort.POPULAR, null, 2);
+                    mapSearchService.searchPosts(KEYWORD, FeedSort.MOST_SCRAPPED, null, 2);
 
             assertThat(response.getContent().get(0).imageUrl()).isEqualTo("https://img/first.jpg");
         }
