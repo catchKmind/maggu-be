@@ -38,7 +38,7 @@ public class Comment extends BaseEntity {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
-    // null이면 최상위 댓글. 대댓글의 대댓글은 서비스 계층에서 금지(1단계 제한)
+    // null이면 최상위 댓글. 대댓글은 항상 이 원댓글에 귀속(2단)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_comment_id")
     private Comment parentComment;

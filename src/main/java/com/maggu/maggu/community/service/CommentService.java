@@ -39,16 +39,7 @@ public class CommentService {
     public CommentCreateResponse createComment(AppUser writer, Long postId, CommentCreateRequest request) {
         Post post = postQueryService.getActivePost(postId);
 
-        Comment parent = null;
-        if (request.getParentCommentId() != null) {
-            parent = commentRepository.findById(request.getParentCommentId())
-                    .filter(c -> !c.isDeleted())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-            if (parent.isReply()) {
-                // 대댓글의 대댓글 금지 - 1단계까지만 허용
-                throw new BusinessException(ErrorCode.COMMENT_REPLY_DEPTH_EXCEEDED);
-            }
-        }
+        Comment parent = resolveRootComment(post, request.getParentCommentId());
 
         Comment comment = Comment.builder()
                 .post(post)
@@ -62,6 +53,29 @@ public class CommentService {
                 .commentId(comment.getId())
                 .parentCommentId(parent != null ? parent.getId() : null)
                 .build();
+    }
+
+    // 대댓글 ID가 와도 원댓글(첫 부모)에 붙인다. 스레드는 2단만 유지한다.
+    private Comment resolveRootComment(Post post, Long parentCommentId) {
+        if (parentCommentId == null) {
+            return null;
+        }
+
+        Comment target = commentRepository.findById(parentCommentId)
+                .filter(comment -> !comment.isDeleted())
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        if (target.getPost() == null || !post.getId().equals(target.getPost().getId())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        Comment root = target;
+        while (root.isReply()) {
+            root = root.getParentComment();
+            if (root == null || root.isDeleted()) {
+                throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+            }
+        }
+        return root;
     }
 
     public List<CommentResponse> getComments(Long postId, AppUser viewer) {
