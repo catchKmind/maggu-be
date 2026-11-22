@@ -44,7 +44,7 @@ public class PostFeedService {
                 : decodedCursor.id();
 
         List<Post> posts = null;
-        if (sort == FeedSort.POPULAR) {
+        if (sort == FeedSort.MOST_SCRAPPED) {
             posts = postRepository.findPostsByContentIdPopular(contentId, scrapCount, createdAt, cursorId, size + 1);
         } else if (sort == FeedSort.LATEST) {
             posts = postRepository.findPostsByContentIdLatest(contentId, createdAt, cursorId, size + 1);

@@ -25,6 +25,8 @@ public class PostDetailResponse {
     private boolean scrappedByMe;
     private Map<String, Long> stickerReactionCounts;
     private String myReactionSticker;
+    private Long myReactionStickerId;
+    private List<StickerReactionItem> stickerReactions;
     private Instant createdAt;
     private Instant updatedAt;
 }

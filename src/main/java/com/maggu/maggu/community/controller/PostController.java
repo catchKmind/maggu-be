@@ -38,7 +38,7 @@ public class PostController {
     private static final int MAX_FEED_SIZE = 100;
 
     @PostMapping
-    @Operation(summary = "게시글 작성", description = "사진은 presigned-url로 업로드한 objectKey 0~4개, 본문 500자, 사진이 있으면 위도/경도 필수. 사진 없이 본문만 올릴 때는 위치 필드를 비운다.")
+    @Operation(summary = "게시글 작성", description = "사진은 presigned-url로 업로드한 objectKey 0~4개, 본문 500자, 카테고리(RECOMMEND/QUESTION) 필수. 사진이 있으면 위도/경도 필수. 사진 없이 본문만 올릴 때는 위치 필드를 비운다.")
     public PostCreateResponse createPost(
             @CurrentUser AppUser user,
             @Valid @RequestBody PostCreateRequest request
@@ -47,27 +47,27 @@ public class PostController {
     }
 
     @GetMapping
-    @Operation(summary = "커뮤니티 피드 조회", description = "카테고리 탭별, 최신순(latest)/스크랩 많은순(popular) 조회")
+    @Operation(summary = "커뮤니티 피드 조회", description = "카테고리 탭별(RECOMMEND/QUESTION), 최신순(latest)/스크랩 많은순(most_scrapped) 조회")
     public PageResponse<PostSummaryResponse> getFeed(
             @CurrentUser AppUser user,
             @RequestParam(required = false) PostCategory category,
-            @RequestParam(defaultValue = "latest") String sort,
+            @Parameter(description = "latest / most_scrapped") @RequestParam(defaultValue = "latest") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return queryService.getFeed(category, sort, user, page, size);
+        return queryService.getFeed(category, FeedSort.fromOrDefault(sort), user, page, size);
     }
 
     @GetMapping("/search")
-    @Operation(summary = "게시글 검색", description = "본문/장소명 키워드 검색")
+    @Operation(summary = "게시글 검색", description = "본문/장소명 키워드 검색. 정렬은 latest / most_scrapped")
     public PageResponse<PostSummaryResponse> search(
             @CurrentUser AppUser user,
             @RequestParam String keyword,
-            @RequestParam(defaultValue = "latest") String sort,
+            @Parameter(description = "latest / most_scrapped") @RequestParam(defaultValue = "latest") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return queryService.search(keyword, sort, user, page, size);
+        return queryService.search(keyword, FeedSort.fromOrDefault(sort), user, page, size);
     }
 
     @GetMapping("/{postId}")
@@ -112,10 +112,10 @@ public class PostController {
 
     @GetMapping("/feed")
     @Operation(summary = "관광지 연결 게시글 피드 조회",
-            description = "특정 관광지(contentId)에 연결된 게시글을 인기순(popular)/최신순(latest)으로 커서 기반 무한 스크롤 조회")
+            description = "특정 관광지(contentId)에 연결된 게시글을 스크랩 많은순(most_scrapped)/최신순(latest)으로 커서 기반 무한 스크롤 조회")
     public CursorPageResponse<PostFeedItemResponse> getFeedByContentId(
             @Parameter(description = "관광지 콘텐츠 ID") @RequestParam() String contentId,
-            @Parameter(description = "인기순(POPULAR) / 최신순(LATEST)으로 분류") @RequestParam String feedSort,
+            @Parameter(description = "스크랩 많은순(most_scrapped) / 최신순(latest)") @RequestParam String feedSort,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int size
     ) {

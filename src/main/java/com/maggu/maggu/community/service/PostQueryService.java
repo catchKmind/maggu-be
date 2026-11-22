@@ -12,13 +12,14 @@ import com.maggu.maggu.community.repository.ScrapRepository;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.post.dto.enums.FeedSort;
 import com.maggu.maggu.post.repository.PostRepository;
+import com.maggu.maggu.sticker.entity.Sticker;
 import com.maggu.maggu.user.entity.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +35,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PostQueryService {
 
-    private static final String SORT_POPULAR = "popular";
-
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
     private final CommentRepository commentRepository;
@@ -43,26 +42,26 @@ public class PostQueryService {
     private final PostStickerReactionRepository reactionRepository;
     private final CloudFrontUrlResolver cloudFrontUrlResolver;
 
-    public PageResponse<PostSummaryResponse> getFeed(PostCategory category, String sort, AppUser viewer, int page, int size) {
-        boolean popular = SORT_POPULAR.equalsIgnoreCase(sort);
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+    public PageResponse<PostSummaryResponse> getFeed(PostCategory category, FeedSort sort, AppUser viewer, int page, int size) {
+        boolean mostScrapped = sort == FeedSort.MOST_SCRAPPED;
+        Pageable pageable = PageRequest.of(page, size);
 
         Page<Post> posts = category == null
-                ? (popular
+                ? (mostScrapped
                 ? postRepository.findByDeletedFalseOrderByScrapCountDescCreatedAtDesc(pageable)
                 : postRepository.findByDeletedFalseOrderByCreatedAtDesc(pageable))
-                : (popular
+                : (mostScrapped
                 ? postRepository.findByCategoryAndDeletedFalseOrderByScrapCountDescCreatedAtDesc(category, pageable)
                 : postRepository.findByCategoryAndDeletedFalseOrderByCreatedAtDesc(category, pageable));
 
         return PageResponse.from(toSummaryPage(posts, viewer));
     }
 
-    public PageResponse<PostSummaryResponse> search(String keyword, String sort, AppUser viewer, int page, int size) {
-        boolean popular = SORT_POPULAR.equalsIgnoreCase(sort);
+    public PageResponse<PostSummaryResponse> search(String keyword, FeedSort sort, AppUser viewer, int page, int size) {
+        boolean mostScrapped = sort == FeedSort.MOST_SCRAPPED;
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<Post> posts = popular
+        Page<Post> posts = mostScrapped
                 ? postRepository.searchByKeywordOrderByScrapCountDescCreatedAtDesc(keyword, pageable)
                 : postRepository.searchByKeywordOrderByCreatedAtDesc(keyword, pageable);
 
@@ -78,15 +77,12 @@ public class PostQueryService {
 
         boolean scrappedByMe = scrapRepository.existsByUserAndPost(viewer, post);
 
-        Map<String, Long> reactionCounts = new LinkedHashMap<>();
-        for (PostStickerReactionRepository.StickerCount count : reactionRepository.countByPostGroupBySticker(post)) {
-            reactionCounts.put(count.getSticker().getName(), count.getCount());
-        }
-
         Optional<PostStickerReaction> myReaction = reactionRepository.findByPostAndUser(post, viewer);
-        String myReactionSticker = myReaction.map(r -> r.getSticker().getName()).orElse(null);
+        Long myStickerId = myReaction.map(r -> r.getSticker().getId()).orElse(null);
+        List<StickerReactionItem> stickerReactions = toReactionItemsFromStickerCounts(
+                reactionRepository.countByPostGroupBySticker(post), myStickerId);
 
-        return toDetailResponse(post, imageUrls, scrappedByMe, reactionCounts, myReactionSticker);
+        return toDetailResponse(post, imageUrls, scrappedByMe, stickerReactions, myReaction.orElse(null));
     }
 
     public PostShareResponse getShareLink(Long postId) {
@@ -123,30 +119,44 @@ public class PostQueryService {
                 .map(scrap -> scrap.getPost().getId())
                 .collect(Collectors.toSet());
 
-        // 1. 게시글별 스티커 반응 수 Batch Map
-        Map<Long, Long> reactionCountMap = reactionRepository.countByPostInGrouped(content).stream()
+        Map<Long, List<PostStickerReactionRepository.PostStickerCount>> reactionsByPostId =
+                reactionRepository.countByPostInGroupBySticker(content).stream()
+                        .collect(Collectors.groupingBy(PostStickerReactionRepository.PostStickerCount::getPostId));
+
+        Map<Long, Long> myStickerIdByPostId = reactionRepository.findByUserAndPostIn(viewer, content).stream()
                 .collect(Collectors.toMap(
-                        PostStickerReactionRepository.PostReactionCount::getPostId,
-                        PostStickerReactionRepository.PostReactionCount::getCount
+                        reaction -> reaction.getPost().getId(),
+                        reaction -> reaction.getSticker().getId()
                 ));
 
-        // 2. 내가 반응한 게시글 ID Batch Set
-        Set<Long> reactedPostIds = reactionRepository.findByUserAndPostIn(viewer, content).stream()
-                .map(reaction -> reaction.getPost().getId())
-                .collect(Collectors.toSet());
+        return posts.map(post -> {
+            List<StickerReactionItem> stickerReactions = toReactionItemsFromPostCounts(
+                    reactionsByPostId.getOrDefault(post.getId(), List.of()),
+                    myStickerIdByPostId.get(post.getId()));
+            long reactionCount = stickerReactions.stream().mapToLong(StickerReactionItem::count).sum();
+            boolean reactedByMe = myStickerIdByPostId.containsKey(post.getId());
+            return toSummaryResponse(
+                    post,
+                    imagesByPostId.getOrDefault(post.getId(), List.of()),
+                    commentRepository.countByPostAndDeletedFalse(post),
+                    reactionCount,
+                    reactedByMe,
+                    scrappedPostIds.contains(post.getId()),
+                    stickerReactions
+            );
+        });
+    }
 
-        return posts.map(post -> toSummaryResponse(
-                post,
-                imagesByPostId.getOrDefault(post.getId(), List.of()),
-                commentRepository.countByPostAndDeletedFalse(post),
-                reactionCountMap.getOrDefault(post.getId(), 0L),
-                reactedPostIds.contains(post.getId()),
-                scrappedPostIds.contains(post.getId())
-        ));
+    public List<StickerReactionItem> getStickerReactions(Post post, AppUser viewer) {
+        Long myStickerId = reactionRepository.findByPostAndUser(post, viewer)
+                .map(r -> r.getSticker().getId())
+                .orElse(null);
+        return toReactionItemsFromStickerCounts(reactionRepository.countByPostGroupBySticker(post), myStickerId);
     }
 
     private PostSummaryResponse toSummaryResponse(Post post, List<String> imageUrls, long commentCount,
-                                                  long reactionCount, boolean reactedByMe, boolean scrappedByMe) {
+                                                  long reactionCount, boolean reactedByMe, boolean scrappedByMe,
+                                                  List<StickerReactionItem> stickerReactions) {
         return PostSummaryResponse.builder()
                 .postId(post.getId())
                 .slug(post.getSlug())
@@ -157,6 +167,7 @@ public class PostQueryService {
                 .category(post.getCategory())
                 .reactionCount(reactionCount)
                 .reactedByMe(reactedByMe)
+                .stickerReactions(stickerReactions)
                 .scrapCount(post.getScrapCount())
                 .commentCount(commentCount)
                 .scrappedByMe(scrappedByMe)
@@ -165,9 +176,15 @@ public class PostQueryService {
     }
 
     private PostDetailResponse toDetailResponse(Post post, List<String> imageUrls, boolean scrappedByMe,
-                                                Map<String, Long> reactionCounts, String myReactionSticker) {
+                                                List<StickerReactionItem> stickerReactions,
+                                                PostStickerReaction myReaction) {
         Double latitude = post.getLocation() != null ? post.getLocation().getY() : null;
         Double longitude = post.getLocation() != null ? post.getLocation().getX() : null;
+
+        Map<String, Long> reactionCounts = new LinkedHashMap<>();
+        for (StickerReactionItem item : stickerReactions) {
+            reactionCounts.put(String.valueOf(item.stickerId()), item.count());
+        }
 
         return PostDetailResponse.builder()
                 .postId(post.getId())
@@ -183,9 +200,34 @@ public class PostQueryService {
                 .scrapCount(post.getScrapCount())
                 .scrappedByMe(scrappedByMe)
                 .stickerReactionCounts(reactionCounts)
-                .myReactionSticker(myReactionSticker)
+                .stickerReactions(stickerReactions)
+                .myReactionSticker(myReaction == null ? null : myReaction.getSticker().getName())
+                .myReactionStickerId(myReaction == null ? null : myReaction.getSticker().getId())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
+                .build();
+    }
+
+    private List<StickerReactionItem> toReactionItemsFromStickerCounts(
+            List<PostStickerReactionRepository.StickerCount> counts, Long myStickerId) {
+        return counts.stream()
+                .map(count -> toReactionItem(count.getSticker(), count.getCount(), myStickerId))
+                .toList();
+    }
+
+    private List<StickerReactionItem> toReactionItemsFromPostCounts(
+            List<PostStickerReactionRepository.PostStickerCount> counts, Long myStickerId) {
+        return counts.stream()
+                .map(count -> toReactionItem(count.getSticker(), count.getCount(), myStickerId))
+                .toList();
+    }
+
+    private StickerReactionItem toReactionItem(Sticker sticker, long count, Long myStickerId) {
+        return StickerReactionItem.builder()
+                .stickerId(sticker.getId())
+                .imageUrl(cloudFrontUrlResolver.toPublicUrl(sticker.getImageUrl()))
+                .count(count)
+                .reactedByMe(myStickerId != null && myStickerId.equals(sticker.getId()))
                 .build();
     }
 
