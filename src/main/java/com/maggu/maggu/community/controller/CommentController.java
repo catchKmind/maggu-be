@@ -31,7 +31,7 @@ public class CommentController {
     private final StickerReactionService stickerReactionService;
 
     @PostMapping("/comments")
-    @Operation(summary = "댓글/대댓글 작성", description = "120자 제한, 대댓글은 1단계까지만 허용")
+            @Operation(summary = "댓글/대댓글 작성", description = "120자 제한. 대댓글 ID를 보내도 원댓글 아래로 귀속된다. 로그인 사용자만 작성 가능.")
     public CommentCreateResponse createComment(
             @CurrentUser AppUser user,
             @PathVariable Long postId,
@@ -41,7 +41,7 @@ public class CommentController {
     }
 
     @GetMapping("/comments")
-    @Operation(summary = "댓글 목록 조회", description = "최상위 댓글 + 대댓글 트리 구조로 반환")
+            @Operation(summary = "댓글 목록 조회", description = "원댓글 아래 대댓글이 붙는 2단 구조. 닉네임은 가입 시 랜덤 닉네임, 글쓴이는 isPostWriter=true")
     public List<CommentResponse> getComments(
             @CurrentUser AppUser user,
             @PathVariable Long postId
