@@ -436,4 +436,73 @@ class UserServiceTest {
             return appUser;
         }
     }
+
+    @Nested
+    @DisplayName("clearProfileImage")
+    class ClearProfileImage {
+
+        private static final String PROFILE_KEY = "PROFILE/1/11111111-1111-4111-8111-111111111111.png";
+
+        @Test
+        @DisplayName("대상 유저가 없으면 예외를 던진다")
+        void throwsWhenUserNotFound() {
+            AppUser principal = appUserWithProfileImage(PROFILE_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.clearProfileImage(principal))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ENTITY_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("프로필 이미지가 있으면 null로 바꾸고 profileImageUrl이 null인 계정 정보를 반환한다")
+        void clearsProfileImage() {
+            AppUser persisted = appUserWithProfileImage(PROFILE_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+
+            MyAccountResponse result = userService.clearProfileImage(persisted);
+
+            assertThat(persisted.getProfileImageUrl()).isNull();
+            assertThat(result.getProfileImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("이미 프로필 이미지가 없어도 예외 없이 profileImageUrl이 null인 계정 정보를 반환한다")
+        void returnsNullWhenAlreadyCleared() {
+            AppUser persisted = appUserWithProfileImage(null);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+
+            MyAccountResponse result = userService.clearProfileImage(persisted);
+
+            assertThat(persisted.getProfileImageUrl()).isNull();
+            assertThat(result.getProfileImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("인자로 받은 유저가 아니라 DB에서 조회한 유저를 변경하고 그 기준으로 응답한다")
+        void clearsPersistedUser() {
+            AppUser principal = appUserWithProfileImage(PROFILE_KEY);
+            AppUser persisted = appUserWithProfileImage(PROFILE_KEY);
+            persisted.changeLocale(AppLocale.EN);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+
+            MyAccountResponse result = userService.clearProfileImage(principal);
+
+            assertThat(persisted.getProfileImageUrl()).isNull();
+            assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
+        }
+
+        private AppUser appUserWithProfileImage(String profileImageKey) {
+            AppUser appUser = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .locale(AppLocale.KO)
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "id", 1L);
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "profileImageUrl", profileImageKey);
+            return appUser;
+        }
+    }
 }
