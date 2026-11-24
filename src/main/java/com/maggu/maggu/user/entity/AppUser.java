@@ -89,4 +89,8 @@ public class AppUser extends BaseEntity {
     public void clearAppleRefreshToken() {
         this.appleRefreshToken = null;
     }
+
+    public void updateProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
 }

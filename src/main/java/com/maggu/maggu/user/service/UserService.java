@@ -5,6 +5,9 @@ import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.global.storage.PresignedUrlService;
+import com.maggu.maggu.global.storage.UploadDomain;
+import com.maggu.maggu.user.dto.request.ProfileImageUpdateRequest;
 import com.maggu.maggu.user.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
@@ -12,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final NicknameGenerator nicknameGenerator;
     private final CloudFrontUrlResolver cloudFrontUrlResolver;
+    private final PresignedUrlService presignedUrlService;
 
     @Transactional
     public AppUser createUser(Provider provider, String providerUserId, String email) {
@@ -77,6 +83,20 @@ public class UserService {
     public MyAccountResponse getMyAccount(AppUser user) {
         String profileImageUrl = cloudFrontUrlResolver.toPublicUrl(user.getProfileImageUrl());
         return MyAccountResponse.from(user, profileImageUrl);
+    }
+
+    @Transactional
+    public MyAccountResponse updateProfileImage(AppUser user, ProfileImageUpdateRequest request) {
+        AppUser appUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
+
+        presignedUrlService.validateObjectKey(user, UploadDomain.PROFILE, request.imageKey());
+
+        if (!Objects.equals(appUser.getProfileImageUrl(), request.imageKey())) {
+            appUser.updateProfileImageUrl(request.imageKey());
+        }
+
+        return MyAccountResponse.from(appUser, cloudFrontUrlResolver.toPublicUrl(appUser.getProfileImageUrl()));
     }
 
     private String resolveNickname(String preferredNickname) {
