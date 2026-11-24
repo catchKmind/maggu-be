@@ -93,4 +93,8 @@ public class AppUser extends BaseEntity {
     public void updateProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
     }
+
+    public void clearProfileImageUrl() {
+        this.profileImageUrl = null;
+    }
 }

@@ -99,6 +99,16 @@ public class UserService {
         return MyAccountResponse.from(appUser, cloudFrontUrlResolver.toPublicUrl(appUser.getProfileImageUrl()));
     }
 
+    @Transactional
+    public MyAccountResponse clearProfileImage(AppUser user) {
+        AppUser appUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
+
+        appUser.clearProfileImageUrl();
+
+        return MyAccountResponse.from(appUser, cloudFrontUrlResolver.toPublicUrl(appUser.getProfileImageUrl()));
+    }
+
     private String resolveNickname(String preferredNickname) {
         if (preferredNickname != null && !preferredNickname.isBlank()) {
             String candidate = clipNickname(preferredNickname.trim());
