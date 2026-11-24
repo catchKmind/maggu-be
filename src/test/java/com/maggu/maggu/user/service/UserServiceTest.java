@@ -5,6 +5,9 @@ import com.maggu.maggu.global.entity.enums.Provider;
 import com.maggu.maggu.global.exception.BusinessException;
 import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
+import com.maggu.maggu.global.storage.PresignedUrlService;
+import com.maggu.maggu.global.storage.UploadDomain;
+import com.maggu.maggu.user.dto.request.ProfileImageUpdateRequest;
 import com.maggu.maggu.user.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
@@ -22,6 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
@@ -42,6 +46,9 @@ class UserServiceTest {
 
     @Mock
     private CloudFrontUrlResolver cloudFrontUrlResolver;
+
+    @Mock
+    private PresignedUrlService presignedUrlService;
 
     @InjectMocks
     private UserService userService;
@@ -320,6 +327,113 @@ class UserServiceTest {
             MyAccountResponse result = userService.updateLocale(principal, AppLocale.EN);
 
             assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/PROFILE/1/uuid.png");
+        }
+    }
+
+    @Nested
+    @DisplayName("updateProfileImage")
+    class UpdateProfileImage {
+
+        private static final String OLD_KEY = "PROFILE/1/11111111-1111-4111-8111-111111111111.png";
+        private static final String NEW_KEY = "PROFILE/1/22222222-2222-4222-8222-222222222222.png";
+
+        @Test
+        @DisplayName("대상 유저가 없으면 예외를 던지고 objectKey 검증은 하지 않는다")
+        void throwsWhenUserNotFound() {
+            AppUser principal = appUserWithProfileImage(null);
+            given(userRepository.findById(1L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.updateProfileImage(principal, new ProfileImageUpdateRequest(NEW_KEY)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ENTITY_NOT_FOUND));
+
+            verifyNoInteractions(presignedUrlService);
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 objectKey면 예외를 던지고 프로필 이미지를 변경하지 않는다")
+        void throwsWhenObjectKeyInvalid() {
+            AppUser persisted = appUserWithProfileImage(OLD_KEY);
+            String invalidKey = "STICKER/1/22222222-2222-4222-8222-222222222222.png";
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            willThrow(new BusinessException(ErrorCode.UPLOAD_INVALID_OBJECT_KEY))
+                    .given(presignedUrlService).validateObjectKey(any(), eq(UploadDomain.PROFILE), eq(invalidKey));
+
+            assertThatThrownBy(() -> userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(invalidKey)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
+
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(OLD_KEY);
+        }
+
+        @Test
+        @DisplayName("새 objectKey면 PROFILE 도메인으로 검증한 뒤 변경하고, CDN URL로 변환해 반환한다")
+        void updatesProfileImage() {
+            AppUser persisted = appUserWithProfileImage(OLD_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(cloudFrontUrlResolver.toPublicUrl(NEW_KEY)).willReturn("https://cdn.example.com/" + NEW_KEY);
+
+            MyAccountResponse result = userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(NEW_KEY));
+
+            verify(presignedUrlService).validateObjectKey(persisted, UploadDomain.PROFILE, NEW_KEY);
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(NEW_KEY);
+            assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/" + NEW_KEY);
+        }
+
+        @Test
+        @DisplayName("프로필 이미지가 없던 유저도 새 objectKey로 변경한다")
+        void updatesProfileImageWhenNoneBefore() {
+            AppUser persisted = appUserWithProfileImage(null);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(cloudFrontUrlResolver.toPublicUrl(NEW_KEY)).willReturn("https://cdn.example.com/" + NEW_KEY);
+
+            MyAccountResponse result = userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(NEW_KEY));
+
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(NEW_KEY);
+            assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/" + NEW_KEY);
+        }
+
+        @Test
+        @DisplayName("기존과 같은 objectKey면 검증은 하되 그대로 두고 현재 계정 정보를 반환한다")
+        void keepsProfileImageWhenSameKey() {
+            AppUser persisted = appUserWithProfileImage(OLD_KEY);
+            // JSON 역직렬화처럼 내용은 같지만 다른 String 인스턴스로 요청이 들어오는 상황을 재현
+            String sameKeyFromRequest = new String(OLD_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(cloudFrontUrlResolver.toPublicUrl(OLD_KEY)).willReturn("https://cdn.example.com/" + OLD_KEY);
+
+            MyAccountResponse result = userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(sameKeyFromRequest));
+
+            verify(presignedUrlService).validateObjectKey(persisted, UploadDomain.PROFILE, sameKeyFromRequest);
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(OLD_KEY);
+            assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/" + OLD_KEY);
+        }
+
+        @Test
+        @DisplayName("응답은 인자로 받은 유저가 아니라 DB에서 조회한 유저 기준으로 만든다")
+        void returnsAccountOfPersistedUser() {
+            AppUser principal = appUserWithProfileImage(OLD_KEY);
+            AppUser persisted = appUserWithProfileImage(OLD_KEY);
+            persisted.changeLocale(AppLocale.EN);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+
+            MyAccountResponse result = userService.updateProfileImage(principal, new ProfileImageUpdateRequest(NEW_KEY));
+
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(NEW_KEY);
+            assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
+        }
+
+        private AppUser appUserWithProfileImage(String profileImageKey) {
+            AppUser appUser = AppUser.builder()
+                    .provider(Provider.GOOGLE)
+                    .providerUserId("google-uid")
+                    .email("test@test.com")
+                    .nickname("행복한사자123")
+                    .locale(AppLocale.KO)
+                    .build();
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "id", 1L);
+            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "profileImageUrl", profileImageKey);
+            return appUser;
         }
     }
 }
