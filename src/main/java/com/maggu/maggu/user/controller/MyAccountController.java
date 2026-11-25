@@ -2,7 +2,7 @@ package com.maggu.maggu.user.controller;
 
 import com.maggu.maggu.global.auth.CurrentUser;
 import com.maggu.maggu.user.dto.request.LocaleUpdateRequest;
-import com.maggu.maggu.user.dto.request.ProfileImageUpdateRequest;
+import com.maggu.maggu.user.dto.request.ProfileUpdateRequest;
 import com.maggu.maggu.user.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.service.UserService;
@@ -35,21 +35,15 @@ public class MyAccountController {
         return userService.updateLocale(user, request.locale());
     }
 
-    @Operation(summary = "프로필 이미지 변경",
-            description = "POST /api/v1/uploads/presigned-url(domain=PROFILE)로 발급받은 URL에 업로드한 뒤, 응답의 objectKey를 imageKey로 보낸다. " +
-                    "본인 PROFILE 키가 아니면 400(UPLOAD-002) / 기존과 같은 키면 변경 없이 현재 계정 정보를 반환한다.")
-    @PatchMapping("/me/profile-image")
-    public MyAccountResponse updateProfileImage(@CurrentUser AppUser user,
-                                                @Valid @RequestBody ProfileImageUpdateRequest request) {
-        return userService.updateProfileImage(user, request);
-    }
-
-    @Operation(summary = "프로필 이미지 삭제(기본 이미지로 변경)",
-            description = "프로필 이미지를 제거한다. " +
-                    "응답의 profileImageUrl은 null이며, FE가 기본 이미지를 표시한다. " +
-                    "이미 없는 상태여도 200을 반환한다.")
-    @DeleteMapping("/me/profile-image")
-    public MyAccountResponse clearProfileImage(@CurrentUser AppUser user) {
-        return userService.clearProfileImage(user);
+    @Operation(summary = "프로필 변경",
+            description = "프로필 수정 화면의 저장 버튼용 API (닉네임과 프로필 이미지를 한 번에 저장) / " +
+                    "nickname: 앞뒤 공백을 제거한 뒤 30자 이하 & 다른 사용자가 쓰는 닉네임이면 409(USER-001) / " +
+                    "imageKey: 새 이미지는 POST /api/v1/uploads/presigned-url(domain=PROFILE)로 업로드한 objectKey, " +
+                    "이미지를 바꾸지 않으면 현재 키를 그대로 기본 이미지로 되돌리려면 null / " +
+                    "본인 PROFILE 키가 아니면 400(UPLOAD-002) 검증에 하나라도 실패하면 닉네임/이미지 모두 변경되지 않음")
+    @PutMapping("/me/profile")
+    public MyAccountResponse updateProfile(@CurrentUser AppUser user,
+                                           @Valid @RequestBody ProfileUpdateRequest request) {
+        return userService.updateProfile(user, request);
     }
 }
