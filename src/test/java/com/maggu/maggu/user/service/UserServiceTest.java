@@ -7,7 +7,7 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.global.storage.PresignedUrlService;
 import com.maggu.maggu.global.storage.UploadDomain;
-import com.maggu.maggu.user.dto.request.ProfileImageUpdateRequest;
+import com.maggu.maggu.user.dto.request.ProfileUpdateRequest;
 import com.maggu.maggu.user.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
@@ -140,84 +140,6 @@ class UserServiceTest {
     }
 
     @Nested
-    @DisplayName("updateNickname")
-    class UpdateNickname {
-
-        @Test
-        @DisplayName("대상 유저가 없으면 예외를 던진다")
-        void updateNicknameThrowsWhenUserNotFound() {
-            given(userRepository.findById(1L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.updateNickname(1L, "새닉네임"))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ENTITY_NOT_FOUND));
-        }
-
-        @Test
-        @DisplayName("이미 사용 중인 닉네임이면 예외를 던지고 반영하지 않는다")
-        void updateNicknameThrowsWhenNicknameDuplicate() {
-            AppUser appUser = appUserWithNickname("기존닉네임");
-            given(userRepository.findById(1L)).willReturn(Optional.of(appUser));
-            given(userRepository.existsByNickname("중복닉네임")).willReturn(true);
-
-            assertThatThrownBy(() -> userService.updateNickname(1L, "중복닉네임"))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NICKNAME_DUPLICATE));
-
-            assertThat(appUser.getNickname()).isEqualTo("기존닉네임");
-            verify(userRepository, never()).flush();
-        }
-
-        @Test
-        @DisplayName("현재와 동일한 닉네임으로 변경 요청하면 중복 체크 없이 통과한다")
-        void updateNicknameSkipsDuplicateCheckForSameNickname() {
-            AppUser appUser = appUserWithNickname("동일닉네임");
-            given(userRepository.findById(1L)).willReturn(Optional.of(appUser));
-
-            userService.updateNickname(1L, "동일닉네임");
-
-            verify(userRepository, never()).existsByNickname(any());
-            verify(userRepository).flush();
-        }
-
-        @Test
-        @DisplayName("중복되지 않은 새 닉네임으로 정상 변경한다")
-        void updateNickname() {
-            AppUser appUser = appUserWithNickname("기존닉네임");
-            given(userRepository.findById(1L)).willReturn(Optional.of(appUser));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
-
-            userService.updateNickname(1L, "새닉네임");
-
-            assertThat(appUser.getNickname()).isEqualTo("새닉네임");
-            verify(userRepository).flush();
-        }
-
-        @Test
-        @DisplayName("사전 체크를 통과해도 동시 요청으로 DB 유니크 제약을 위반하면 중복 예외로 변환한다")
-        void updateNicknameTranslatesRaceConditionToDuplicateException() {
-            AppUser appUser = appUserWithNickname("기존닉네임");
-            given(userRepository.findById(1L)).willReturn(Optional.of(appUser));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
-            willThrow(new DataIntegrityViolationException("uq_user_nickname violation"))
-                    .given(userRepository).flush();
-
-            assertThatThrownBy(() -> userService.updateNickname(1L, "새닉네임"))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NICKNAME_DUPLICATE));
-        }
-
-        private AppUser appUserWithNickname(String nickname) {
-            return AppUser.builder()
-                    .provider(Provider.GOOGLE)
-                    .providerUserId("google-uid")
-                    .email("test@test.com")
-                    .nickname(nickname)
-                    .build();
-        }
-    }
-
-    @Nested
     @DisplayName("getMyAccount")
     class GetMyAccount {
 
@@ -331,173 +253,165 @@ class UserServiceTest {
     }
 
     @Nested
-    @DisplayName("updateProfileImage")
-    class UpdateProfileImage {
+    @DisplayName("updateProfile")
+    class UpdateProfile {
 
+        private static final String OLD_NICKNAME = "행복한사자123";
+        private static final String NEW_NICKNAME = "새닉네임";
         private static final String OLD_KEY = "PROFILE/1/11111111-1111-4111-8111-111111111111.png";
         private static final String NEW_KEY = "PROFILE/1/22222222-2222-4222-8222-222222222222.png";
 
         @Test
-        @DisplayName("대상 유저가 없으면 예외를 던지고 objectKey 검증은 하지 않는다")
+        @DisplayName("대상 유저가 없으면 예외를 던지고 검증/반영을 하지 않는다")
         void throwsWhenUserNotFound() {
-            AppUser principal = appUserWithProfileImage(null);
+            AppUser principal = appUser(OLD_NICKNAME, null);
             given(userRepository.findById(1L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.updateProfileImage(principal, new ProfileImageUpdateRequest(NEW_KEY)))
+            assertThatThrownBy(() -> userService.updateProfile(principal, new ProfileUpdateRequest(NEW_NICKNAME, NEW_KEY)))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ENTITY_NOT_FOUND));
 
             verifyNoInteractions(presignedUrlService);
+            verify(userRepository, never()).flush();
         }
 
         @Test
-        @DisplayName("유효하지 않은 objectKey면 예외를 던지고 프로필 이미지를 변경하지 않는다")
-        void throwsWhenObjectKeyInvalid() {
-            AppUser persisted = appUserWithProfileImage(OLD_KEY);
-            String invalidKey = "STICKER/1/22222222-2222-4222-8222-222222222222.png";
+        @DisplayName("새 닉네임과 새 objectKey를 함께 반영하고, 변경된 계정 정보를 반환한다")
+        void updatesNicknameAndProfileImage() {
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
             given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
-            willThrow(new BusinessException(ErrorCode.UPLOAD_INVALID_OBJECT_KEY))
-                    .given(presignedUrlService).validateObjectKey(any(), eq(UploadDomain.PROFILE), eq(invalidKey));
-
-            assertThatThrownBy(() -> userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(invalidKey)))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
-
-            assertThat(persisted.getProfileImageUrl()).isEqualTo(OLD_KEY);
-        }
-
-        @Test
-        @DisplayName("새 objectKey면 PROFILE 도메인으로 검증한 뒤 변경하고, CDN URL로 변환해 반환한다")
-        void updatesProfileImage() {
-            AppUser persisted = appUserWithProfileImage(OLD_KEY);
-            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(userRepository.existsByNickname(NEW_NICKNAME)).willReturn(false);
             given(cloudFrontUrlResolver.toPublicUrl(NEW_KEY)).willReturn("https://cdn.example.com/" + NEW_KEY);
 
-            MyAccountResponse result = userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(NEW_KEY));
+            MyAccountResponse result = userService.updateProfile(persisted, new ProfileUpdateRequest(NEW_NICKNAME, NEW_KEY));
 
             verify(presignedUrlService).validateObjectKey(persisted, UploadDomain.PROFILE, NEW_KEY);
+            verify(userRepository).flush();
+            assertThat(persisted.getNickname()).isEqualTo(NEW_NICKNAME);
             assertThat(persisted.getProfileImageUrl()).isEqualTo(NEW_KEY);
+            assertThat(result.getNickname()).isEqualTo(NEW_NICKNAME);
             assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/" + NEW_KEY);
+            assertThat(result.getProfileImageKey()).isEqualTo(NEW_KEY);
         }
 
         @Test
-        @DisplayName("프로필 이미지가 없던 유저도 새 objectKey로 변경한다")
-        void updatesProfileImageWhenNoneBefore() {
-            AppUser persisted = appUserWithProfileImage(null);
+        @DisplayName("닉네임이 현재와 같으면 중복 검사를 하지 않는다")
+        void skipsDuplicateCheckForSameNickname() {
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
             given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
-            given(cloudFrontUrlResolver.toPublicUrl(NEW_KEY)).willReturn("https://cdn.example.com/" + NEW_KEY);
 
-            MyAccountResponse result = userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(NEW_KEY));
+            userService.updateProfile(persisted, new ProfileUpdateRequest(OLD_NICKNAME, NEW_KEY));
 
+            verify(userRepository, never()).existsByNickname(any());
+            assertThat(persisted.getNickname()).isEqualTo(OLD_NICKNAME);
             assertThat(persisted.getProfileImageUrl()).isEqualTo(NEW_KEY);
-            assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/" + NEW_KEY);
         }
 
         @Test
-        @DisplayName("기존과 같은 objectKey면 검증은 하되 그대로 두고 현재 계정 정보를 반환한다")
+        @DisplayName("이미 사용 중인 닉네임이면 예외를 던지고 닉네임/이미지 모두 반영하지 않는다")
+        void throwsWhenNicknameDuplicate() {
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(userRepository.existsByNickname(NEW_NICKNAME)).willReturn(true);
+
+            assertThatThrownBy(() -> userService.updateProfile(persisted, new ProfileUpdateRequest(NEW_NICKNAME, NEW_KEY)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NICKNAME_DUPLICATE));
+
+            assertThat(persisted.getNickname()).isEqualTo(OLD_NICKNAME);
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(OLD_KEY);
+            verifyNoInteractions(presignedUrlService);
+            verify(userRepository, never()).flush();
+        }
+
+        @Test
+        @DisplayName("사전 검사를 통과해도 동시 요청으로 DB 유니크 제약을 위반하면 중복 예외로 변환한다")
+        void translatesRaceConditionToDuplicateException() {
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(userRepository.existsByNickname(NEW_NICKNAME)).willReturn(false);
+            willThrow(new DataIntegrityViolationException("uq_user_nickname violation"))
+                    .given(userRepository).flush();
+
+            assertThatThrownBy(() -> userService.updateProfile(persisted, new ProfileUpdateRequest(NEW_NICKNAME, OLD_KEY)))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NICKNAME_DUPLICATE));
+        }
+
+        @Test
+        @DisplayName("imageKey가 null이면 objectKey 검증 없이 기본 이미지(null)로 바꾼다")
+        void clearsProfileImageWhenImageKeyNull() {
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
+            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+
+            MyAccountResponse result = userService.updateProfile(persisted, new ProfileUpdateRequest(OLD_NICKNAME, null));
+
+            verifyNoInteractions(presignedUrlService);
+            assertThat(persisted.getProfileImageUrl()).isNull();
+            assertThat(result.getProfileImageUrl()).isNull();
+            assertThat(result.getProfileImageKey()).isNull();
+        }
+
+        @Test
+        @DisplayName("기존과 같은 objectKey면 검증은 하되 이미지는 그대로 두고 닉네임만 반영한다")
         void keepsProfileImageWhenSameKey() {
-            AppUser persisted = appUserWithProfileImage(OLD_KEY);
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
             // JSON 역직렬화처럼 내용은 같지만 다른 String 인스턴스로 요청이 들어오는 상황을 재현
             String sameKeyFromRequest = new String(OLD_KEY);
             given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(userRepository.existsByNickname(NEW_NICKNAME)).willReturn(false);
             given(cloudFrontUrlResolver.toPublicUrl(OLD_KEY)).willReturn("https://cdn.example.com/" + OLD_KEY);
 
-            MyAccountResponse result = userService.updateProfileImage(persisted, new ProfileImageUpdateRequest(sameKeyFromRequest));
+            MyAccountResponse result = userService.updateProfile(persisted, new ProfileUpdateRequest(NEW_NICKNAME, sameKeyFromRequest));
 
             verify(presignedUrlService).validateObjectKey(persisted, UploadDomain.PROFILE, sameKeyFromRequest);
+            assertThat(persisted.getNickname()).isEqualTo(NEW_NICKNAME);
             assertThat(persisted.getProfileImageUrl()).isEqualTo(OLD_KEY);
             assertThat(result.getProfileImageUrl()).isEqualTo("https://cdn.example.com/" + OLD_KEY);
+            assertThat(result.getProfileImageKey()).isEqualTo(OLD_KEY);
         }
 
         @Test
-        @DisplayName("응답은 인자로 받은 유저가 아니라 DB에서 조회한 유저 기준으로 만든다")
-        void returnsAccountOfPersistedUser() {
-            AppUser principal = appUserWithProfileImage(OLD_KEY);
-            AppUser persisted = appUserWithProfileImage(OLD_KEY);
-            persisted.changeLocale(AppLocale.EN);
+        @DisplayName("유효하지 않은 objectKey면 예외를 던지고 닉네임/이미지 모두 반영하지 않는다")
+        void throwsWhenObjectKeyInvalid() {
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
+            String invalidKey = "STICKER/1/22222222-2222-4222-8222-222222222222.png";
             given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(userRepository.existsByNickname(NEW_NICKNAME)).willReturn(false);
+            willThrow(new BusinessException(ErrorCode.UPLOAD_INVALID_OBJECT_KEY))
+                    .given(presignedUrlService).validateObjectKey(any(), eq(UploadDomain.PROFILE), eq(invalidKey));
 
-            MyAccountResponse result = userService.updateProfileImage(principal, new ProfileImageUpdateRequest(NEW_KEY));
-
-            assertThat(persisted.getProfileImageUrl()).isEqualTo(NEW_KEY);
-            assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
-        }
-
-        private AppUser appUserWithProfileImage(String profileImageKey) {
-            AppUser appUser = AppUser.builder()
-                    .provider(Provider.GOOGLE)
-                    .providerUserId("google-uid")
-                    .email("test@test.com")
-                    .nickname("행복한사자123")
-                    .locale(AppLocale.KO)
-                    .build();
-            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "id", 1L);
-            org.springframework.test.util.ReflectionTestUtils.setField(appUser, "profileImageUrl", profileImageKey);
-            return appUser;
-        }
-    }
-
-    @Nested
-    @DisplayName("clearProfileImage")
-    class ClearProfileImage {
-
-        private static final String PROFILE_KEY = "PROFILE/1/11111111-1111-4111-8111-111111111111.png";
-
-        @Test
-        @DisplayName("대상 유저가 없으면 예외를 던진다")
-        void throwsWhenUserNotFound() {
-            AppUser principal = appUserWithProfileImage(PROFILE_KEY);
-            given(userRepository.findById(1L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.clearProfileImage(principal))
+            assertThatThrownBy(() -> userService.updateProfile(persisted, new ProfileUpdateRequest(NEW_NICKNAME, invalidKey)))
                     .isInstanceOfSatisfying(BusinessException.class,
-                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ENTITY_NOT_FOUND));
-        }
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_OBJECT_KEY));
 
-        @Test
-        @DisplayName("프로필 이미지가 있으면 null로 바꾸고 profileImageUrl이 null인 계정 정보를 반환한다")
-        void clearsProfileImage() {
-            AppUser persisted = appUserWithProfileImage(PROFILE_KEY);
-            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
-
-            MyAccountResponse result = userService.clearProfileImage(persisted);
-
-            assertThat(persisted.getProfileImageUrl()).isNull();
-            assertThat(result.getProfileImageUrl()).isNull();
-        }
-
-        @Test
-        @DisplayName("이미 프로필 이미지가 없어도 예외 없이 profileImageUrl이 null인 계정 정보를 반환한다")
-        void returnsNullWhenAlreadyCleared() {
-            AppUser persisted = appUserWithProfileImage(null);
-            given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
-
-            MyAccountResponse result = userService.clearProfileImage(persisted);
-
-            assertThat(persisted.getProfileImageUrl()).isNull();
-            assertThat(result.getProfileImageUrl()).isNull();
+            assertThat(persisted.getNickname()).isEqualTo(OLD_NICKNAME);
+            assertThat(persisted.getProfileImageUrl()).isEqualTo(OLD_KEY);
+            verify(userRepository, never()).flush();
         }
 
         @Test
         @DisplayName("인자로 받은 유저가 아니라 DB에서 조회한 유저를 변경하고 그 기준으로 응답한다")
-        void clearsPersistedUser() {
-            AppUser principal = appUserWithProfileImage(PROFILE_KEY);
-            AppUser persisted = appUserWithProfileImage(PROFILE_KEY);
+        void updatesPersistedUser() {
+            AppUser principal = appUser(OLD_NICKNAME, OLD_KEY);
+            AppUser persisted = appUser(OLD_NICKNAME, OLD_KEY);
             persisted.changeLocale(AppLocale.EN);
             given(userRepository.findById(1L)).willReturn(Optional.of(persisted));
+            given(userRepository.existsByNickname(NEW_NICKNAME)).willReturn(false);
 
-            MyAccountResponse result = userService.clearProfileImage(principal);
+            MyAccountResponse result = userService.updateProfile(principal, new ProfileUpdateRequest(NEW_NICKNAME, NEW_KEY));
 
-            assertThat(persisted.getProfileImageUrl()).isNull();
+            assertThat(persisted.getNickname()).isEqualTo(NEW_NICKNAME);
+            assertThat(principal.getNickname()).isEqualTo(OLD_NICKNAME);
             assertThat(result.getLocale()).isEqualTo(AppLocale.EN);
         }
 
-        private AppUser appUserWithProfileImage(String profileImageKey) {
+        private AppUser appUser(String nickname, String profileImageKey) {
             AppUser appUser = AppUser.builder()
                     .provider(Provider.GOOGLE)
                     .providerUserId("google-uid")
                     .email("test@test.com")
-                    .nickname("행복한사자123")
+                    .nickname(nickname)
                     .locale(AppLocale.KO)
                     .build();
             org.springframework.test.util.ReflectionTestUtils.setField(appUser, "id", 1L);

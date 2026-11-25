@@ -7,7 +7,7 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.global.storage.PresignedUrlService;
 import com.maggu.maggu.global.storage.UploadDomain;
-import com.maggu.maggu.user.dto.request.ProfileImageUpdateRequest;
+import com.maggu.maggu.user.dto.request.ProfileUpdateRequest;
 import com.maggu.maggu.user.dto.response.MyAccountResponse;
 import com.maggu.maggu.user.entity.AppUser;
 import com.maggu.maggu.user.repository.UserRepository;
@@ -62,23 +62,6 @@ public class UserService {
         return MyAccountResponse.from(appUser, profileImageUrl);
     }
 
-    @Transactional
-    public void updateNickname(Long userId, String newNickname) {
-        AppUser appUser = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
-
-        if (!appUser.getNickname().equals(newNickname) && userRepository.existsByNickname(newNickname)) {
-            throw new BusinessException(ErrorCode.NICKNAME_DUPLICATE);
-        }
-
-        appUser.changeNickname(newNickname);
-        try {
-            userRepository.flush();
-        } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.NICKNAME_DUPLICATE);
-        }
-    }
-
     @Transactional(readOnly = true)
     public MyAccountResponse getMyAccount(AppUser user) {
         String profileImageUrl = cloudFrontUrlResolver.toPublicUrl(user.getProfileImageUrl());
@@ -86,29 +69,40 @@ public class UserService {
     }
 
     @Transactional
-    public MyAccountResponse updateProfileImage(AppUser user, ProfileImageUpdateRequest request) {
+    public MyAccountResponse updateProfile(AppUser user, ProfileUpdateRequest request) {
         AppUser appUser = userRepository.findById(user.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
 
-        presignedUrlService.validateObjectKey(user, UploadDomain.PROFILE, request.imageKey());
+        // 닉네임 검증
+        if (!Objects.equals(appUser.getNickname(), request.nickname())
+                && userRepository.existsByNickname(request.nickname())) {
+            throw new BusinessException(ErrorCode.NICKNAME_DUPLICATE);
+        }
 
-        if (!Objects.equals(appUser.getProfileImageUrl(), request.imageKey())) {
+        // 이미지 검증
+        if (request.imageKey() != null) {
+            presignedUrlService.validateObjectKey(user, UploadDomain.PROFILE, request.imageKey());
+        }
+
+        // 검증 후 반영
+        appUser.changeNickname(request.nickname());
+
+        if (request.imageKey() == null) {
+            appUser.clearProfileImageUrl();
+        } else if (!Objects.equals(appUser.getProfileImageUrl(), request.imageKey())) {
             appUser.updateProfileImageUrl(request.imageKey());
+        }
+
+        try {
+            userRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.NICKNAME_DUPLICATE);
         }
 
         return MyAccountResponse.from(appUser, cloudFrontUrlResolver.toPublicUrl(appUser.getProfileImageUrl()));
     }
 
-    @Transactional
-    public MyAccountResponse clearProfileImage(AppUser user) {
-        AppUser appUser = userRepository.findById(user.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND));
-
-        appUser.clearProfileImageUrl();
-
-        return MyAccountResponse.from(appUser, cloudFrontUrlResolver.toPublicUrl(appUser.getProfileImageUrl()));
-    }
-
+    // ---------- private methods ----------
     private String resolveNickname(String preferredNickname) {
         if (preferredNickname != null && !preferredNickname.isBlank()) {
             String candidate = clipNickname(preferredNickname.trim());
