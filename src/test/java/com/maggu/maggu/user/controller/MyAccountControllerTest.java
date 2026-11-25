@@ -36,6 +36,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -188,6 +189,39 @@ class MyAccountControllerTest {
             mockMvc.perform(patch(URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(new ProfileImageUpdateRequest(IMAGE_KEY))))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(userService);
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/v1/users/me/profile-image")
+    class ClearProfileImage {
+
+        private static final String URL = "/api/v1/users/me/profile-image";
+
+        @Test
+        @DisplayName("인증된 유저면 프로필 이미지를 삭제하고 profileImageUrl이 null인 계정 정보를 반환한다")
+        void clearsProfileImage() throws Exception {
+            AppUser user = appUser(1L);
+            authenticateAs(user);
+            given(userService.clearProfileImage(user))
+                    .willReturn(new MyAccountResponse(Provider.APPLE, "user@test.com", "시진", null, AppLocale.KO));
+
+            mockMvc.perform(delete(URL))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.nickname").value("시진"))
+                    .andExpect(jsonPath("$.data.profileImageUrl").doesNotExist());
+
+            verify(userService).clearProfileImage(user);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 401을 반환하고 서비스는 호출하지 않는다")
+        void returnsUnauthorizedWhenNotAuthenticated() throws Exception {
+            mockMvc.perform(delete(URL))
                     .andExpect(status().isUnauthorized());
 
             verifyNoInteractions(userService);

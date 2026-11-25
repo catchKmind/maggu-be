@@ -43,4 +43,13 @@ public class MyAccountController {
                                                 @Valid @RequestBody ProfileImageUpdateRequest request) {
         return userService.updateProfileImage(user, request);
     }
+
+    @Operation(summary = "프로필 이미지 삭제(기본 이미지로 변경)",
+            description = "프로필 이미지를 제거한다. " +
+                    "응답의 profileImageUrl은 null이며, FE가 기본 이미지를 표시한다. " +
+                    "이미 없는 상태여도 200을 반환한다.")
+    @DeleteMapping("/me/profile-image")
+    public MyAccountResponse clearProfileImage(@CurrentUser AppUser user) {
+        return userService.clearProfileImage(user);
+    }
 }
