@@ -8,10 +8,13 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.global.storage.PresignedUrlService;
 import com.maggu.maggu.global.storage.UploadDomain;
-import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
-import com.maggu.maggu.sticker.dto.StickerCreateRequest;
-import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
-import com.maggu.maggu.sticker.dto.StickerResponse;
+import com.maggu.maggu.sticker.dto.request.GiphyStickerCreateRequest;
+import com.maggu.maggu.place.repository.PlaceScrapRepository;
+import com.maggu.maggu.sticker.dto.request.StickerCreateRequest;
+import com.maggu.maggu.sticker.dto.request.StickersDeleteRequest;
+import com.maggu.maggu.sticker.dto.response.StickerDeleteResponse;
+import com.maggu.maggu.sticker.dto.response.StickerResponse;
+import com.maggu.maggu.sticker.dto.response.StickersDeleteResponse;
 import com.maggu.maggu.sticker.entity.Sticker;
 import com.maggu.maggu.sticker.entity.StickerType;
 import com.maggu.maggu.sticker.repository.StickerRepository;
@@ -29,6 +32,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +41,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class StickerServiceTest {
@@ -49,6 +54,9 @@ class StickerServiceTest {
 
     @Mock
     private PresignedUrlService presignedUrlService;
+
+    @Mock
+    private PlaceScrapRepository placeScrapRepository;
 
     @Spy
     private CloudFrontUrlResolver cloudFrontUrlResolver =
@@ -188,12 +196,13 @@ class StickerServiceTest {
     class DeleteMySticker {
 
         @Test
-        @DisplayName("본인 소유이고 반응에 쓰이지 않은 스티커면 물리적으로 삭제한다")
+        @DisplayName("본인 소유이고 반응/장소 스크랩 어디에도 쓰이지 않은 스티커면 물리적으로 삭제한다")
         void deletesStickerOwnedByUser() {
             AppUser user = appUserWithId(1L, "나그네");
             Sticker sticker = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
             given(stickerRepository.findByIdAndDeletedFalse(10L)).willReturn(Optional.of(sticker));
-            given(postStickerReactionRepository.existsBySticker(sticker)).willReturn(false);
+            given(postStickerReactionRepository.findStickerIdsInUse(List.of(sticker))).willReturn(Set.of());
+            given(placeScrapRepository.findStickerIdsInUse(List.of(sticker))).willReturn(Set.of());
 
             StickerDeleteResponse result = stickerService.deleteMySticker(user, 10L);
 
@@ -208,7 +217,8 @@ class StickerServiceTest {
             AppUser user = appUserWithId(1L, "나그네");
             Sticker sticker = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
             given(stickerRepository.findByIdAndDeletedFalse(10L)).willReturn(Optional.of(sticker));
-            given(postStickerReactionRepository.existsBySticker(sticker)).willReturn(true);
+            given(postStickerReactionRepository.findStickerIdsInUse(List.of(sticker))).willReturn(Set.of(10L));
+            given(placeScrapRepository.findStickerIdsInUse(List.of(sticker))).willReturn(Set.of());
 
             StickerDeleteResponse result = stickerService.deleteMySticker(user, 10L);
 
@@ -218,6 +228,22 @@ class StickerServiceTest {
             assertThat(result.deleted())
                     .as("소프트 삭제여도 호출자 입장에선 목록에서 사라진 것이니 true로 응답한다")
                     .isTrue();
+        }
+
+        @Test
+        @DisplayName("본인 소유이지만 장소 스크랩에 쓰이고 있으면 물리 삭제 대신 소프트 삭제한다")
+        void softDeletesStickerInUseByPlaceScrap() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker sticker = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            given(stickerRepository.findByIdAndDeletedFalse(10L)).willReturn(Optional.of(sticker));
+            given(postStickerReactionRepository.findStickerIdsInUse(List.of(sticker))).willReturn(Set.of());
+            given(placeScrapRepository.findStickerIdsInUse(List.of(sticker))).willReturn(Set.of(10L));
+
+            StickerDeleteResponse result = stickerService.deleteMySticker(user, 10L);
+
+            assertThat(sticker.isDeleted()).isTrue();
+            verify(stickerRepository, never()).delete(any());
+            assertThat(result.deleted()).isTrue();
         }
 
         @Test
@@ -246,6 +272,140 @@ class StickerServiceTest {
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.STICKER_ACCESS_DENIED));
 
             verify(stickerRepository, never()).delete(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteMyStickers")
+    class DeleteMyStickers {
+
+        @Test
+        @DisplayName("본인 소유이고 어디에도 쓰이지 않은 스티커들은 물리적으로 삭제하고, 요청한 ID를 응답한다")
+        void deletesUnusedStickersOwnedByUser() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker sticker1 = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            Sticker sticker2 = sticker(11L, "나그네의 커스텀 스티커", "https://img/2.png", user);
+            List<Sticker> stickers = List.of(sticker1, sticker2);
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(10L, 11L))).willReturn(stickers);
+            given(postStickerReactionRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+            given(placeScrapRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+
+            StickersDeleteResponse result = stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(10L, 11L)));
+
+            verify(stickerRepository).delete(sticker1);
+            verify(stickerRepository).delete(sticker2);
+            assertThat(result.stickerIds()).containsExactly(10L, 11L);
+        }
+
+        @Test
+        @DisplayName("게시글 반응에 쓰이는 스티커는 소프트 삭제하고, 나머지는 물리 삭제한다")
+        void softDeletesStickerInUseByReaction() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker inUse = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            Sticker unused = sticker(11L, "나그네의 커스텀 스티커", "https://img/2.png", user);
+            List<Sticker> stickers = List.of(inUse, unused);
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(10L, 11L))).willReturn(stickers);
+            given(postStickerReactionRepository.findStickerIdsInUse(stickers)).willReturn(Set.of(10L));
+            given(placeScrapRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+
+            stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(10L, 11L)));
+
+            assertThat(inUse.isDeleted()).isTrue();
+            verify(stickerRepository, never()).delete(inUse);
+            verify(stickerRepository).delete(unused);
+        }
+
+        @Test
+        @DisplayName("장소 스크랩에 쓰이는 스티커도 물리 삭제 대신 소프트 삭제한다")
+        void softDeletesStickerInUseByPlaceScrap() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker inUse = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            List<Sticker> stickers = List.of(inUse);
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(10L))).willReturn(stickers);
+            given(postStickerReactionRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+            given(placeScrapRepository.findStickerIdsInUse(stickers)).willReturn(Set.of(10L));
+
+            stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(10L)));
+
+            assertThat(inUse.isDeleted()).isTrue();
+            verify(stickerRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("다른 유저 소유 스티커가 하나라도 섞여 있으면 예외를 던지고 아무것도 삭제하지 않는다")
+        void throwsAndDeletesNothingWhenAnyStickerNotOwned() {
+            AppUser user = appUserWithId(1L, "나그네");
+            AppUser other = appUserWithId(2L, "다른유저");
+            Sticker mine = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            Sticker others = sticker(11L, "다른유저의 커스텀 스티커", "https://img/2.png", other);
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(10L, 11L))).willReturn(List.of(mine, others));
+
+            assertThatThrownBy(() -> stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(10L, 11L))))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.STICKER_ACCESS_DENIED));
+
+            verify(stickerRepository, never()).delete(any());
+            assertThat(mine.isDeleted()).isFalse();
+            verifyNoInteractions(postStickerReactionRepository, placeScrapRepository);
+        }
+
+        @Test
+        @DisplayName("소유자가 없는 GIPHY 스티커가 섞여 있으면 예외를 던지고 아무것도 삭제하지 않는다")
+        void throwsWhenGiphyStickerIncluded() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker giphy = giphySticker(30L, "giphy-1", "https://media.giphy.com/1.gif");
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(30L))).willReturn(List.of(giphy));
+
+            assertThatThrownBy(() -> stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(30L))))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.STICKER_ACCESS_DENIED));
+
+            verify(stickerRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않거나 이미 삭제된 ID는 무시하고, 찾은 스티커만 삭제한 뒤 요청한 ID를 모두 응답한다")
+        void ignoresMissingIds() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker sticker = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            List<Sticker> stickers = List.of(sticker);
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(10L, 99L))).willReturn(stickers);
+            given(postStickerReactionRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+            given(placeScrapRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+
+            StickersDeleteResponse result = stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(10L, 99L)));
+
+            verify(stickerRepository).delete(sticker);
+            assertThat(result.stickerIds()).containsExactly(10L, 99L);
+        }
+
+        @Test
+        @DisplayName("찾은 스티커가 하나도 없으면 사용 중 조회 없이 바로 성공으로 응답한다")
+        void returnsImmediatelyWhenNothingFound() {
+            AppUser user = appUserWithId(1L, "나그네");
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(98L, 99L))).willReturn(List.of());
+
+            StickersDeleteResponse result = stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(98L, 99L)));
+
+            assertThat(result.stickerIds()).containsExactly(98L, 99L);
+            verify(stickerRepository, never()).delete(any());
+            verifyNoInteractions(postStickerReactionRepository, placeScrapRepository);
+        }
+
+        @Test
+        @DisplayName("중복된 ID는 한 번만 조회·응답한다")
+        void deduplicatesIds() {
+            AppUser user = appUserWithId(1L, "나그네");
+            Sticker sticker1 = sticker(10L, "나그네의 커스텀 스티커", "https://img/1.png", user);
+            Sticker sticker2 = sticker(11L, "나그네의 커스텀 스티커", "https://img/2.png", user);
+            List<Sticker> stickers = List.of(sticker1, sticker2);
+            given(stickerRepository.findAllByIdInAndDeletedFalse(List.of(10L, 11L))).willReturn(stickers);
+            given(postStickerReactionRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+            given(placeScrapRepository.findStickerIdsInUse(stickers)).willReturn(Set.of());
+
+            StickersDeleteResponse result = stickerService.deleteMyStickers(user, new StickersDeleteRequest(List.of(10L, 10L, 11L)));
+
+            assertThat(result.stickerIds()).containsExactly(10L, 11L);
         }
     }
 
