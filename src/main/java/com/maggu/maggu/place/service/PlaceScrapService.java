@@ -118,7 +118,7 @@ public class PlaceScrapService {
     }
 
     private Sticker resolveSticker(AppUser user, Long stickerId) {
-        Sticker sticker = stickerRepository.findById(stickerId)
+        Sticker sticker = stickerRepository.findByIdAndDeletedFalse(stickerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STICKER_NOT_FOUND));
         if (sticker.isCustom() && !sticker.isOwnedBy(user)) {
             throw new BusinessException(ErrorCode.STICKER_ACCESS_DENIED);
