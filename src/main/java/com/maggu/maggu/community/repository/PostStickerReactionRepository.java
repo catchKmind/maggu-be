@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface PostStickerReactionRepository extends JpaRepository<PostStickerReaction, Long> {
 
@@ -46,6 +47,9 @@ public interface PostStickerReactionRepository extends JpaRepository<PostSticker
     List<PostStickerReaction> findByUserAndPostIn(AppUser user, List<Post> posts);
 
     void deleteByUser(AppUser user);
+
+    @Query("SELECT DISTINCT r.sticker.id FROM PostStickerReaction r WHERE r.sticker IN :stickers")
+    Set<Long> findStickerIdsInUse(@Param("stickers") List<Sticker> stickers);
 
     interface StickerCount {
         Sticker getSticker();
