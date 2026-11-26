@@ -1,4 +1,4 @@
-package com.maggu.maggu.sticker.dto;
+package com.maggu.maggu.sticker.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
