@@ -1,4 +1,4 @@
-package com.maggu.maggu.sticker.dto;
+package com.maggu.maggu.sticker.dto.response;
 
 import com.maggu.maggu.sticker.entity.StickerType;
 import io.swagger.v3.oas.annotations.media.Schema;

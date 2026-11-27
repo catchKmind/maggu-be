@@ -18,6 +18,8 @@ public interface StickerRepository extends JpaRepository<Sticker, Long> {
 
     Optional<Sticker> findByIdAndDeletedFalse(Long id);
 
+    List<Sticker> findAllByIdInAndDeletedFalse(List<Long> ids);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Sticker s SET s.deleted = true, s.user = null WHERE s.user.id = :userId")
     void detachAndMarkDeletedByUserId(@Param("userId") Long userId);

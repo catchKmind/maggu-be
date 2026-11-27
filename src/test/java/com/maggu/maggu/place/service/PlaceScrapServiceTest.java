@@ -276,7 +276,7 @@ class PlaceScrapServiceTest {
             Sticker sticker = sticker(2L, user);
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
             given(placeScrapRepository.existsByPlaceFolderIdAndTourismContentId(3L, "13579")).willReturn(false);
             given(placeScrapRepository.saveAndFlush(any(PlaceScrap.class))).willAnswer(invocation -> {
@@ -294,11 +294,11 @@ class PlaceScrapServiceTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 스티커면 예외를 던지고 저장하지 않는다")
+        @DisplayName("존재하지 않거나 삭제(소프트 삭제 포함)된 스티커면 예외를 던지고 저장하지 않는다")
         void throwsWhenStickerNotFound() {
             AppUser user = appUserWithId(1L, "나그네");
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.empty());
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> placeScrapService.createPlaceScrap(user, request))
                     .isInstanceOfSatisfying(BusinessException.class,
@@ -314,7 +314,7 @@ class PlaceScrapServiceTest {
             AppUser otherUser = appUserWithId(2L, "다른유저");
             Sticker sticker = sticker(2L, otherUser);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
 
             assertThatThrownBy(() -> placeScrapService.createPlaceScrap(user, request))
                     .isInstanceOfSatisfying(BusinessException.class,
@@ -331,7 +331,7 @@ class PlaceScrapServiceTest {
             Sticker sticker = giphySticker(2L);
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
             given(placeScrapRepository.existsByPlaceFolderIdAndTourismContentId(3L, "13579")).willReturn(false);
             given(placeScrapRepository.saveAndFlush(any(PlaceScrap.class))).willAnswer(invocation -> {
@@ -351,7 +351,7 @@ class PlaceScrapServiceTest {
             AppUser user = appUserWithId(1L, "나그네");
             Sticker sticker = sticker(2L, user);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> placeScrapService.createPlaceScrap(user, request))
@@ -369,7 +369,7 @@ class PlaceScrapServiceTest {
             Sticker sticker = sticker(2L, user);
             PlaceFolder folder = placeFolder(3L, otherUser, "남의 폴더", "📍", false);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
 
             assertThatThrownBy(() -> placeScrapService.createPlaceScrap(user, request))
@@ -386,7 +386,7 @@ class PlaceScrapServiceTest {
             Sticker sticker = sticker(2L, user);
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
             given(placeScrapRepository.existsByPlaceFolderIdAndTourismContentId(3L, "13579")).willReturn(true);
 
@@ -404,7 +404,7 @@ class PlaceScrapServiceTest {
             Sticker sticker = sticker(2L, user);
             PlaceFolder folder = placeFolder(3L, user, "가보고 싶은 곳", "✈️", false);
             PlaceScrapCreateRequest request = new PlaceScrapCreateRequest("13579", 2L, 3L);
-            given(stickerRepository.findById(2L)).willReturn(Optional.of(sticker));
+            given(stickerRepository.findByIdAndDeletedFalse(2L)).willReturn(Optional.of(sticker));
             given(placeFolderRepository.findById(3L)).willReturn(Optional.of(folder));
             given(placeScrapRepository.existsByPlaceFolderIdAndTourismContentId(3L, "13579")).willReturn(false);
             willThrow(new DataIntegrityViolationException("duplicate"))

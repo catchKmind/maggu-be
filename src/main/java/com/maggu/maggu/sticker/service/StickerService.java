@@ -6,10 +6,13 @@ import com.maggu.maggu.global.exception.ErrorCode;
 import com.maggu.maggu.global.storage.CloudFrontUrlResolver;
 import com.maggu.maggu.global.storage.PresignedUrlService;
 import com.maggu.maggu.global.storage.UploadDomain;
-import com.maggu.maggu.sticker.dto.GiphyStickerCreateRequest;
-import com.maggu.maggu.sticker.dto.StickerCreateRequest;
-import com.maggu.maggu.sticker.dto.StickerDeleteResponse;
-import com.maggu.maggu.sticker.dto.StickerResponse;
+import com.maggu.maggu.place.repository.PlaceScrapRepository;
+import com.maggu.maggu.sticker.dto.request.GiphyStickerCreateRequest;
+import com.maggu.maggu.sticker.dto.request.StickerCreateRequest;
+import com.maggu.maggu.sticker.dto.request.StickersDeleteRequest;
+import com.maggu.maggu.sticker.dto.response.StickerDeleteResponse;
+import com.maggu.maggu.sticker.dto.response.StickerResponse;
+import com.maggu.maggu.sticker.dto.response.StickersDeleteResponse;
 import com.maggu.maggu.sticker.entity.Sticker;
 import com.maggu.maggu.sticker.entity.StickerType;
 import com.maggu.maggu.sticker.repository.StickerRepository;
@@ -18,7 +21,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +34,7 @@ public class StickerService {
     private final PostStickerReactionRepository postStickerReactionRepository;
     private final CloudFrontUrlResolver cloudFrontUrlResolver;
     private final PresignedUrlService presignedUrlService;
+    private final PlaceScrapRepository placeScrapRepository;
 
     @Transactional
     public StickerResponse createGiphySticker(GiphyStickerCreateRequest request) {
@@ -80,24 +86,54 @@ public class StickerService {
             throw new BusinessException(ErrorCode.STICKER_ACCESS_DENIED);
         }
 
-        if (postStickerReactionRepository.existsBySticker(sticker)) {
-            sticker.markDeleted();
-        } else {
-            stickerRepository.delete(sticker);
-        }
+        deleteOrSoftDelete(List.of(sticker));
 
         return StickerDeleteResponse.builder()
                 .stickerId(stickerId)
                 .deleted(true)
                 .build();
-
     }
 
+    @Transactional
+    public StickersDeleteResponse deleteMyStickers(AppUser user, StickersDeleteRequest request) {
+        // id 중복 제거
+        List<Long> uniqueIds = request.stickerIds().stream().distinct().toList();
+        List<Sticker> stickers = stickerRepository.findAllByIdInAndDeletedFalse(uniqueIds);
+        if (stickers.isEmpty()) {
+            return StickersDeleteResponse.from(uniqueIds);
+        }
+
+        // 소유권 검증
+        stickers.forEach(sticker -> {
+            if (!sticker.isOwnedBy(user)) {
+                throw new BusinessException(ErrorCode.STICKER_ACCESS_DENIED);
+            }
+        });
+
+        deleteOrSoftDelete(stickers);
+
+        return StickersDeleteResponse.from(uniqueIds);
+    }
+
+    // ---------- private methods ----------
     private StickerResponse getStickerResponse(Sticker savedSticker) {
         return StickerResponse.builder()
                 .stickerId(savedSticker.getId())
                 .imageUrl(cloudFrontUrlResolver.toPublicUrl(savedSticker.getImageUrl()))
                 .type(savedSticker.getType())
                 .build();
+    }
+
+    private void deleteOrSoftDelete(List<Sticker> stickers) {
+        Set<Long> inUse = new HashSet<>(postStickerReactionRepository.findStickerIdsInUse(stickers));
+        inUse.addAll(placeScrapRepository.findStickerIdsInUse(stickers));
+
+        stickers.forEach(sticker -> {
+            if (inUse.contains(sticker.getId())) {
+                sticker.markDeleted();
+            } else {
+                stickerRepository.delete(sticker);
+            }
+        });
     }
 }

@@ -1,4 +1,4 @@
-package com.maggu.maggu.sticker.dto;
+package com.maggu.maggu.sticker.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

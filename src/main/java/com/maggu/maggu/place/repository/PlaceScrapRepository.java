@@ -2,12 +2,14 @@ package com.maggu.maggu.place.repository;
 
 import com.maggu.maggu.place.entity.PlaceFolder;
 import com.maggu.maggu.place.entity.PlaceScrap;
+import com.maggu.maggu.sticker.entity.Sticker;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 public interface PlaceScrapRepository extends JpaRepository<PlaceScrap, Long> {
 
@@ -27,4 +29,6 @@ public interface PlaceScrapRepository extends JpaRepository<PlaceScrap, Long> {
 
     boolean existsByPlaceFolderIdAndTourismContentId(Long placeFolderId, String tourismContentId);
 
+    @Query("SELECT DISTINCT p.sticker.id FROM PlaceScrap p WHERE p.sticker IN :stickers")
+    Set<Long> findStickerIdsInUse(@Param("stickers") List<Sticker> stickers);
 }
