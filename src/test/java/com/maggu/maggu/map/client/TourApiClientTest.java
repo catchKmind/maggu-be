@@ -243,7 +243,7 @@ class TourApiClientTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .body(gatewayErrorJson("22", "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR")));
 
-            assertThatThrownBy(() -> tourApiClient.searchFestival(TourServiceArea.GB, AppLocale.KO))
+            assertThatThrownBy(() -> tourApiClient.searchFestival(TourServiceArea.GYEONGBUK, AppLocale.KO))
                     .isInstanceOfSatisfying(BusinessException.class,
                             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOURISM_API_QUOTA_EXCEEDED));
             mockServer.verify();
@@ -259,7 +259,7 @@ class TourApiClientTest {
         void returnsParsedFestivalSpots() {
             expectSearchFestival(searchFestivalJson(CONTENT_ID, "20260918", "20260920"));
 
-            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB, AppLocale.KO);
+            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GYEONGBUK, AppLocale.KO);
 
             assertThat(result).hasSize(1);
             FestivalSpot spot = result.get(0);
@@ -275,7 +275,7 @@ class TourApiClientTest {
         void skipsItemWithMalformedDateInsteadOfFailingWholeBatch() {
             expectSearchFestival(searchFestivalJson(CONTENT_ID, "invalid-date", "20260920"));
 
-            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GB, AppLocale.KO);
+            List<FestivalSpot> result = tourApiClient.searchFestival(TourServiceArea.GYEONGBUK, AppLocale.KO);
 
             assertThat(result).isEmpty();
             mockServer.verify();
@@ -294,7 +294,7 @@ class TourApiClientTest {
                     .andRespond(withSuccess(searchFestivalJson(CONTENT_ID, "20260918", "20260920"), MediaType.APPLICATION_JSON));
             // 국문 mockServer에는 expectation을 등록하지 않는다 — 국문 RestClient로 호출되면 "예상치 못한 요청"으로 실패한다.
 
-            List<FestivalSpot> result = client.searchFestival(TourServiceArea.GB, AppLocale.EN);
+            List<FestivalSpot> result = client.searchFestival(TourServiceArea.GYEONGBUK, AppLocale.EN);
 
             assertThat(result).extracting(FestivalSpot::contentId).containsExactly(CONTENT_ID);
             engMockServer.verify();
@@ -310,7 +310,7 @@ class TourApiClientTest {
         void returnsParsedAreaSpots() {
             expectAreaBasedList(areaBasedListJson(List.of(areaItemJson("1", "12"), areaItemJson("2", "39"))));
 
-            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GYEONGBUK, AppLocale.KO);
 
             assertThat(result).extracting(TourSpot::contentId).containsExactly("1", "2");
             assertThat(result).extracting(TourSpot::contentType)
@@ -323,7 +323,7 @@ class TourApiClientTest {
         void skipsMalformedItemInsteadOfFailingWholeBatch() {
             expectAreaBasedList(areaBasedListJson(List.of(areaItemJson("1", "12"), areaItemJson("2", "invalid"))));
 
-            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GYEONGBUK, AppLocale.KO);
 
             assertThat(result).extracting(TourSpot::contentId).containsExactly("1");
             mockServer.verify();
@@ -336,7 +336,7 @@ class TourApiClientTest {
                     areaItemJson("1", "12", "경상북도 경주시 도초길 124-31", ""),
                     areaItemJson("2", "12", "경상북도 경주시 도초길 124-31", "(율동)"))));
 
-            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GYEONGBUK, AppLocale.KO);
 
             assertThat(result).extracting(TourSpot::address)
                     .containsExactly("경상북도 경주시 도초길 124-31", "경상북도 경주시 도초길 124-31 (율동)");
@@ -348,7 +348,7 @@ class TourApiClientTest {
         void leavesAddressNullWhenAbsent() {
             expectAreaBasedList(areaBasedListJson(List.of(areaItemJson("1", "12"))));
 
-            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GB, AppLocale.KO);
+            List<TourSpot> result = tourApiClient.findAllByArea(TourServiceArea.GYEONGBUK, AppLocale.KO);
 
             assertThat(result).extracting(TourSpot::address).containsOnlyNulls();
             mockServer.verify();

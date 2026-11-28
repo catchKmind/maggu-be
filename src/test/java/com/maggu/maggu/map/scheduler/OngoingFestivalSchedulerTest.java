@@ -49,10 +49,11 @@ class OngoingFestivalSchedulerTest {
         @Test
         @DisplayName("모든 언어 × 모든 지역을 조회해 언어별로 적재한다")
         void loadsAllLocalesAndAreas() {
-            givenFestivalResponse(TourServiceArea.GB, AppLocale.KO, festival("KO-GB"));
-            givenFestivalResponse(TourServiceArea.GN, AppLocale.KO, festival("KO-GN"));
-            givenFestivalResponse(TourServiceArea.GB, AppLocale.EN, festival("EN-GB"));
-            givenFestivalResponse(TourServiceArea.GN, AppLocale.EN, festival("EN-GN"));
+            givenAllAreasReturnEmpty();
+            givenFestivalResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, festival("KO-GB"));
+            givenFestivalResponse(TourServiceArea.GYEONGNAM, AppLocale.KO, festival("KO-GN"));
+            givenFestivalResponse(TourServiceArea.GYEONGBUK, AppLocale.EN, festival("EN-GB"));
+            givenFestivalResponse(TourServiceArea.GYEONGNAM, AppLocale.EN, festival("EN-GN"));
 
             scheduler.init();
 
@@ -66,8 +67,8 @@ class OngoingFestivalSchedulerTest {
         @DisplayName("EN을 나중에 적재해도 같은 지역의 KO 값이 덮어써지지 않는다")
         void enLoadDoesNotOverwriteKoOfSameArea() {
             givenAllAreasReturnEmpty();
-            givenFestivalResponse(TourServiceArea.GB, AppLocale.KO, festival("111"), festival("112"));
-            givenFestivalResponse(TourServiceArea.GB, AppLocale.EN, festival("900"));
+            givenFestivalResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, festival("111"), festival("112"));
+            givenFestivalResponse(TourServiceArea.GYEONGBUK, AppLocale.EN, festival("900"));
 
             scheduler.init();
 
@@ -80,10 +81,11 @@ class OngoingFestivalSchedulerTest {
         @Test
         @DisplayName("한 언어·지역 조회가 실패해도 예외를 전파하지 않고 나머지는 적재한다")
         void loadsOthersWhenOneLocaleAreaFails() {
-            givenFestivalResponse(TourServiceArea.GB, AppLocale.KO, festival("KO-GB"));
-            givenFestivalResponse(TourServiceArea.GN, AppLocale.KO, festival("KO-GN"));
-            givenFestivalFailure(TourServiceArea.GB, AppLocale.EN);
-            givenFestivalResponse(TourServiceArea.GN, AppLocale.EN, festival("EN-GN"));
+            givenAllAreasReturnEmpty();
+            givenFestivalResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, festival("KO-GB"));
+            givenFestivalResponse(TourServiceArea.GYEONGNAM, AppLocale.KO, festival("KO-GN"));
+            givenFestivalFailure(TourServiceArea.GYEONGBUK, AppLocale.EN);
+            givenFestivalResponse(TourServiceArea.GYEONGNAM, AppLocale.EN, festival("EN-GN"));
 
             assertThatCode(() -> scheduler.init()).doesNotThrowAnyException();
 
@@ -113,11 +115,11 @@ class OngoingFestivalSchedulerTest {
         @Test
         @DisplayName("한 언어·지역 조회가 실패하면 그 칸만 이전 값을 유지하고 나머지는 갱신된다")
         void keepsPreviousValuesOfFailedLocaleAreaAndRefreshesOthers() {
-            cache.replaceRegion(AppLocale.KO, TourServiceArea.GB, List.of(festival("KO-OLD")));
-            cache.replaceRegion(AppLocale.EN, TourServiceArea.GB, List.of(festival("EN-OLD")));
+            cache.replaceRegion(AppLocale.KO, TourServiceArea.GYEONGBUK, List.of(festival("KO-OLD")));
+            cache.replaceRegion(AppLocale.EN, TourServiceArea.GYEONGBUK, List.of(festival("EN-OLD")));
             givenAllAreasReturnEmpty();
-            givenFestivalFailure(TourServiceArea.GB, AppLocale.EN);
-            givenFestivalResponse(TourServiceArea.GB, AppLocale.KO, festival("KO-NEW"));
+            givenFestivalFailure(TourServiceArea.GYEONGBUK, AppLocale.EN);
+            givenFestivalResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, festival("KO-NEW"));
 
             assertThatCode(() -> scheduler.callSearchFestivalAPIAtMidNight()).doesNotThrowAnyException();
 
