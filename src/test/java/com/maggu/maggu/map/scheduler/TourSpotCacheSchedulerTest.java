@@ -55,10 +55,11 @@ class TourSpotCacheSchedulerTest {
         @Test
         @DisplayName("캐시가 비어 있으면 모든 언어 × 모든 지역을 조회해 적재한다")
         void loadsAllLocalesAndAreasWhenCacheIsEmpty() {
-            givenAreaResponse(TourServiceArea.GB, AppLocale.KO, spot("GB-1", "경북 장소", GB_LNG, GB_LAT));
-            givenAreaResponse(TourServiceArea.GN, AppLocale.KO, spot("GN-1", "경남 장소", GN_LNG, GN_LAT));
-            givenAreaResponse(TourServiceArea.GB, AppLocale.EN, spot("GB-1", "GB spot", GB_LNG, GB_LAT));
-            givenAreaResponse(TourServiceArea.GN, AppLocale.EN, spot("GN-1", "GN spot", GN_LNG, GN_LAT));
+            givenAllAreasReturnEmpty();
+            givenAreaResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, spot("GB-1", "경북 장소", GB_LNG, GB_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGNAM, AppLocale.KO, spot("GN-1", "경남 장소", GN_LNG, GN_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGBUK, AppLocale.EN, spot("GB-1", "GB spot", GB_LNG, GB_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGNAM, AppLocale.EN, spot("GN-1", "GN spot", GN_LNG, GN_LAT));
 
             scheduler.init();
 
@@ -69,9 +70,10 @@ class TourSpotCacheSchedulerTest {
         @Test
         @DisplayName("이미 값이 있는 언어는 TourAPI를 호출하지 않고 건너뛴다")
         void skipsLocaleThatAlreadyHasValues() {
+            givenAllAreasReturnEmpty();
             tourSpotCache.putAll(AppLocale.KO, List.of(spot("GB-1", "기존 장소", GB_LNG, GB_LAT)));
-            givenAreaResponse(TourServiceArea.GB, AppLocale.EN, spot("GB-1", "GB spot", GB_LNG, GB_LAT));
-            givenAreaResponse(TourServiceArea.GN, AppLocale.EN, spot("GN-1", "GN spot", GN_LNG, GN_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGBUK, AppLocale.EN, spot("GB-1", "GB spot", GB_LNG, GB_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGNAM, AppLocale.EN, spot("GN-1", "GN spot", GN_LNG, GN_LAT));
 
             scheduler.init();
 
@@ -83,10 +85,11 @@ class TourSpotCacheSchedulerTest {
         @Test
         @DisplayName("한 지역 조회가 실패해도 예외를 전파하지 않고 나머지 지역은 적재한다")
         void loadsOtherAreasWhenOneAreaFails() {
-            givenAreaFailure(TourServiceArea.GB, AppLocale.KO);
-            givenAreaResponse(TourServiceArea.GN, AppLocale.KO, spot("GN-1", "경남 장소", GN_LNG, GN_LAT));
-            givenAreaResponse(TourServiceArea.GB, AppLocale.EN, spot("GB-1", "GB spot", GB_LNG, GB_LAT));
-            givenAreaResponse(TourServiceArea.GN, AppLocale.EN, spot("GN-1", "GN spot", GN_LNG, GN_LAT));
+            givenAllAreasReturnEmpty();
+            givenAreaFailure(TourServiceArea.GYEONGBUK, AppLocale.KO);
+            givenAreaResponse(TourServiceArea.GYEONGNAM, AppLocale.KO, spot("GN-1", "경남 장소", GN_LNG, GN_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGBUK, AppLocale.EN, spot("GB-1", "GB spot", GB_LNG, GB_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGNAM, AppLocale.EN, spot("GN-1", "GN spot", GN_LNG, GN_LAT));
 
             assertThatCode(() -> scheduler.init()).doesNotThrowAnyException();
 
@@ -119,7 +122,7 @@ class TourSpotCacheSchedulerTest {
         void overwritesExistingSpotWithLatestResponse() {
             tourSpotCache.putAll(AppLocale.KO, List.of(spot("GB-1", "옛 이름", GB_LNG, GB_LAT)));
             givenAllAreasReturnEmpty();
-            givenAreaResponse(TourServiceArea.GB, AppLocale.KO, spot("GB-1", "새 이름", GB_LNG, GB_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, spot("GB-1", "새 이름", GB_LNG, GB_LAT));
 
             scheduler.refreshAt3Am();
 
@@ -131,7 +134,7 @@ class TourSpotCacheSchedulerTest {
         void keepsSpotMissingFromResponse() {
             tourSpotCache.putAll(AppLocale.KO, List.of(spot("GB-OLD", "폐업한 장소", GB_LNG, GB_LAT)));
             givenAllAreasReturnEmpty();
-            givenAreaResponse(TourServiceArea.GB, AppLocale.KO, spot("GB-NEW", "새 장소", GB_LNG, GB_LAT));
+            givenAreaResponse(TourServiceArea.GYEONGBUK, AppLocale.KO, spot("GB-NEW", "새 장소", GB_LNG, GB_LAT));
 
             scheduler.refreshAt3Am();
 
@@ -145,8 +148,8 @@ class TourSpotCacheSchedulerTest {
                     spot("GB-1", "경북 옛 이름", GB_LNG, GB_LAT),
                     spot("GN-1", "경남 옛 이름", GN_LNG, GN_LAT)));
             givenAllAreasReturnEmpty();
-            givenAreaFailure(TourServiceArea.GB, AppLocale.KO);
-            givenAreaResponse(TourServiceArea.GN, AppLocale.KO, spot("GN-1", "경남 새 이름", GN_LNG, GN_LAT));
+            givenAreaFailure(TourServiceArea.GYEONGBUK, AppLocale.KO);
+            givenAreaResponse(TourServiceArea.GYEONGNAM, AppLocale.KO, spot("GN-1", "경남 새 이름", GN_LNG, GN_LAT));
 
             assertThatCode(() -> scheduler.refreshAt3Am()).doesNotThrowAnyException();
 
