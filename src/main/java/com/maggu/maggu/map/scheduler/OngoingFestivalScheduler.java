@@ -50,9 +50,9 @@ public class OngoingFestivalScheduler {
             try {
                 List<FestivalSpot> spots = tourApiClient.searchFestival(tourServiceArea, locale);
                 cache.replaceRegion(locale, tourServiceArea, spots);
-                log.info("[MAP] {} 지역({}) 적재 완료({}건) ", tourServiceArea.getName(), locale, spots.size());
+                log.info("[MAP] {} 지역({}) 적재 완료({}건) ", tourServiceArea.getKoName(), locale, spots.size());
             } catch (BusinessException e) {
-                log.error("[MAP] {} 지역({}) OngoingFestival Cache 적재 실패", tourServiceArea.getName(), locale, e);
+                log.error("[MAP] {} 지역({}) OngoingFestival Cache 적재 실패", tourServiceArea.getKoName(), locale, e);
             }
         }
     }

@@ -58,9 +58,9 @@ public class TourSpotCacheScheduler {
             try {
                 List<TourSpot> spots = tourApiClient.findAllByArea(tourServiceArea, locale);
                 tourSpotCache.putAll(locale, spots);
-                log.info("[MAP] {} 지역 적재 완료({}건) locale={}", tourServiceArea.getName(), spots.size(), locale);
+                log.info("[MAP] {} 지역 적재 완료({}건) locale={}", tourServiceArea.getKoName(), spots.size(), locale);
             } catch (BusinessException e) {
-                log.error("[MAP] {} 지역 TourSpotCache 적재 실패 locale={}", tourServiceArea.getName(), locale, e);
+                log.error("[MAP] {} 지역 TourSpotCache 적재 실패 locale={}", tourServiceArea.getKoName(), locale, e);
             }
         }
     }
